@@ -3,6 +3,7 @@
 #include <inc/stdio.h>
 #include <inc/string.h>
 #include <inc/assert.h>
+#include <inc/x86.h>
 
 #include <kern/monitor.h>
 #include <kern/console.h>
@@ -12,10 +13,12 @@ void
 test_backtrace(int x)
 {
 	cprintf("entering test_backtrace %d\n", x);
-	if (x > 0)
-		test_backtrace(x-1);
-	else
-		mon_backtrace(0, 0, 0);
+	// if (x > 0)
+	// {
+	// 	test_backtrace(x-1);
+	// }
+	// else
+	mon_backtrace(0, 0, 0);
 	cprintf("leaving test_backtrace %d\n", x);
 }
 
@@ -33,7 +36,18 @@ i386_init(void)
 	// Can't call cprintf until after we do this!
 	cons_init();
 
-	cprintf("444544 decimal is %o octal!\n", 444544);
+	// (gdb) x/12x ap
+	// 0xf010ffd4:     0x01    0x00    0x00    0x00    0x03    0x00    0x00    0x00
+	// 0xf010ffdc:     0x04    0x00    0x00    0x00
+	// (gdb) x/s fmt
+	// 0xf0101ab7:     "x %d, y %x, z %d\n"
+	// int x = 1, y = 3, z = 4;
+	// cprintf("x %d, y %x, z %d\n", x, y, z);
+
+	// He110 World, little-endian for &i
+	// unsigned int i = 0x00646c72;
+ 	// cprintf("H%x Wo%s", 57616, &i);
+
 
 	// Test the stack backtrace function (lab 1 only)
 	test_backtrace(5);

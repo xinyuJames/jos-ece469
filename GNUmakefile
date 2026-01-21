@@ -152,10 +152,10 @@ gdb:
 
 pre-qemu: .gdbinit
 
-qemu: $(IMAGES) pre-qemu
-	$(QEMU) -nographic $(QEMUOPTS)
+qemu: $(IMAGES) pre-qemu # changed to GUI display
+	$(QEMU) $(QEMUOPTS)
 
-qemu-nox: $(IMAGES) pre-qemu
+qemu-nox: $(IMAGES) pre-qemu # no display
 	@echo "***"
 	@echo "*** Use Ctrl-a x to exit qemu"
 	@echo "***"

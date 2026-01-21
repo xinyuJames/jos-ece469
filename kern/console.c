@@ -191,7 +191,7 @@ cga_putc(int c)
 		break;
 	}
 
-	// What is the purpose of this?
+	// What is the purpose of this? ans: scroll lines when crt_pos fill whole window
 	if (crt_pos >= CRT_SIZE) {
 		int i;
 
