@@ -76,7 +76,7 @@ mon_backtrace(int argc, char **argv, struct Trapframe *tf)
 		arg3 = *((uint32_t *)(ebp + 4*4));
 		arg4 = *((uint32_t *)(ebp + 5*4));
 		arg5 = *((uint32_t *)(ebp + 6*4));
-		cprintf("ebp %x eip %x args %x %x %x %x %x\n", ebp, eip, arg1, arg2, arg3, arg4, arg5);
+		cprintf("ebp %08x eip %08x args %08x %08x %08x %08x %08x\n", ebp, eip, arg1, arg2, arg3, arg4, arg5);
 	}
 	return 0;
 }

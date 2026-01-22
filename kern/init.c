@@ -13,11 +13,11 @@ void
 test_backtrace(int x)
 {
 	cprintf("entering test_backtrace %d\n", x);
-	// if (x > 0)
-	// {
-	// 	test_backtrace(x-1);
-	// }
-	// else
+	if (x > 0)
+	{
+		test_backtrace(x-1);
+	}
+	else
 	mon_backtrace(0, 0, 0);
 	cprintf("leaving test_backtrace %d\n", x);
 }
@@ -50,6 +50,7 @@ i386_init(void)
 
 
 	// Test the stack backtrace function (lab 1 only)
+	cprintf("%d decimal is %o octal!", 444544, 444544);
 	test_backtrace(5);
 
 	// Drop into the kernel monitor.

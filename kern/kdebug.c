@@ -57,7 +57,7 @@ stab_binsearch(const struct Stab *stabs, int *region_left, int *region_right,
 		int true_m = (l + r) / 2, m = true_m;
 
 		// search for earliest stab with right type
-		while (m >= l && stabs[m].n_type != type)
+		while (m >= l && (stabs[m].n_type != type || (stabs[m].n_type == N_FUN && stabs[m].n_type==0)))
 			m--;
 		if (m < l) {	// no match in [l, m]
 			l = true_m + 1;
