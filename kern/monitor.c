@@ -66,6 +66,8 @@ mon_backtrace(int argc, char **argv, struct Trapframe *tf)
     // HINT 1: use read_ebp().
     // HINT 2: print the current ebp on the first line (not current_ebp[0])
 	uint32_t ebp, eip, arg1, arg2, arg3, arg4, arg5;
+
+	cprintf("Stack backtrace:\n");
 	for (ebp=read_ebp(); ebp>0; ebp= *((uint32_t *)ebp))
 	{
 		// location of eip will be one location higher than ebp in mem
