@@ -70,15 +70,23 @@ mon_backtrace(int argc, char **argv, struct Trapframe *tf)
 	cprintf("Stack backtrace:\n");
 	for (ebp=read_ebp(); ebp>0; ebp= *((uint32_t *)ebp))
 	{
+		struct Eipdebuginfo info = {0};
 		// location of eip will be one location higher than ebp in mem
-		eip = *((uint32_t *)(ebp + 1*4));
+		eip = *((uint32_t *)(ebp + 4));
 		// arguments will be higher than eip
 		arg1 = *((uint32_t *)(ebp + 2*4));
 		arg2 = *((uint32_t *)(ebp + 3*4));
 		arg3 = *((uint32_t *)(ebp + 4*4));
 		arg4 = *((uint32_t *)(ebp + 5*4));
 		arg5 = *((uint32_t *)(ebp + 6*4));
-		cprintf("ebp %08x eip %08x args %08x %08x %08x %08x %08x\n", ebp, eip, arg1, arg2, arg3, arg4, arg5);
+		cprintf("  ebp %08x eip %08x args %08x %08x %08x %08x %08x\n", ebp, eip, arg1, arg2, arg3, arg4, arg5);
+		debuginfo_eip(eip, &info);
+		cprintf("         %s:%d: %.*s+%d\n",
+				info.eip_file,
+				info.eip_line,
+				info.eip_fn_namelen,
+				info.eip_fn_name,
+				eip - info.eip_fn_addr);
 	}
 	return 0;
 }
