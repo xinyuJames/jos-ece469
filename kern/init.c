@@ -48,6 +48,9 @@ i386_init(void)
 	// unsigned int i = 0x00646c72;
  	// cprintf("H%x Wo%s", 57616, &i);
 
+	cprintf("normal \x1b[31mred\x1b[0m normal\n");
+	cprintf("\x1b[44;97mblue-bg bright white fg\x1b[0m\n");
+
 
 	// Test the stack backtrace function (lab 1 only)
 	cprintf("%d decimal is %o octal!", 444544, 444544);
