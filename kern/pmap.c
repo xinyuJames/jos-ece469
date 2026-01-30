@@ -104,8 +104,14 @@ boot_alloc(uint32_t n)
 	// to a multiple of PGSIZE.
 	//
 	// LAB 2: Your code here.
+	result = nextfree;
+	nextfree = ROUNDUP(nextfree + n, PGSIZE);
+	if ((uint32_t)nextfree - nvram_read(NVRAM_BASELO) / 1024 > npages * PGSIZE) // use more mem than available
+	{
+		panic("Memory Allocation Out of Bound...");
+	}
 
-	return NULL;
+	return result;
 }
 
 // Set up a two-level page table:
@@ -120,6 +126,7 @@ boot_alloc(uint32_t n)
 void
 mem_init(void)
 {
+	
 	uint32_t cr0;
 	size_t n;
 
@@ -150,6 +157,10 @@ mem_init(void)
 	// array.  'npages' is the number of physical pages in memory.  Use memset
 	// to initialize all fields of each struct PageInfo to 0.
 	// Your code goes here:
+	pages = (struct PageInfo *) boot_alloc(npages * sizeof(struct PageInfo));
+	memset(pages, 0, sizeof(struct PageInfo) * npages);
+	
+
 
 
 	//////////////////////////////////////////////////////////////////////
@@ -176,6 +187,7 @@ mem_init(void)
 	//      (ie. perm = PTE_U | PTE_P)
 	//    - pages itself -- kernel RW, user NONE
 	// Your code goes here:
+	
 
 	//////////////////////////////////////////////////////////////////////
 	// Use the physical memory that 'bootstack' refers to as the kernel
@@ -188,6 +200,7 @@ mem_init(void)
 	//       overwrite memory.  Known as a "guard page".
 	//     Permissions: kernel RW, user NONE
 	// Your code goes here:
+	
 
 	//////////////////////////////////////////////////////////////////////
 	// Map all of physical memory at KERNBASE.
