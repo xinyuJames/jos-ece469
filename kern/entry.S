@@ -85,7 +85,7 @@ spin:	jmp	spin
 
 .data
 ###################################################################
-# boot stack
+# boot stack | 32kb assigned (check kernel.sym)
 ###################################################################
 	.p2align	PGSHIFT		# force page alignment
 	.globl		bootstack
