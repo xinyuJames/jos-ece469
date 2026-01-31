@@ -106,7 +106,7 @@ boot_alloc(uint32_t n)
 	// LAB 2: Your code here.
 	result = nextfree;
 	nextfree = ROUNDUP(nextfree + n, PGSIZE);
-	if ((uint32_t)nextfree - nvram_read(NVRAM_BASELO) / 1024 > npages * PGSIZE) // use more mem than available
+	if (PADDR(nextfree) > npages * PGSIZE) // use more mem than available
 	{
 		panic("Memory Allocation Out of Bound...");
 	}
