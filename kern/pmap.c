@@ -318,8 +318,20 @@ page_init(void)
 struct PageInfo *
 page_alloc(int alloc_flags)
 {
+	if (page_free_list == NULL) return NULL; // no mem condition
+
+	struct PageInfo * rtn = page_free_list;
+	page_free_list = rtn->pp_link;
+	rtn->pp_link = NULL;
+
+	if (alloc_flags & ALLOC_ZERO) // zero condition
+	{
+		uint32_t *va = page2kva(rtn);
+		memset(va, '\0', PGSIZE); // access pa through va
+	}
+
 	// Fill this function in
-	return 0;
+	return rtn;
 }
 
 //
@@ -332,6 +344,19 @@ page_free(struct PageInfo *pp)
 	// Fill this function in
 	// Hint: You may want to panic if pp->pp_ref is nonzero or
 	// pp->pp_link is not NULL.
+	if (pp->pp_link != NULL || pp->pp_ref != 0)
+	{
+		panic("Incorrect page_free call...");
+		return;
+	}
+
+	uint32_t * va = page2kva(pp);
+	memset(va, 0, PGSIZE);
+	
+	pp->pp_link = page_free_list;
+	page_free_list = pp;
+
+	return;
 }
 
 //
