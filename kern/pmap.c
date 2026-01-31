@@ -123,7 +123,7 @@ boot_alloc(uint32_t n)
 //
 // From UTOP to ULIM, the user is allowed to read but not write.
 // Above ULIM the user cannot read or write.
-void
+void //TODO
 mem_init(void)
 {
 	
@@ -200,7 +200,7 @@ mem_init(void)
 	//       overwrite memory.  Known as a "guard page".
 	//     Permissions: kernel RW, user NONE
 	// Your code goes here:
-	
+
 
 	//////////////////////////////////////////////////////////////////////
 	// Map all of physical memory at KERNBASE.
@@ -271,8 +271,32 @@ page_init(void)
 	// Change the code to reflect this.
 	// NB: DO NOT actually touch the physical memory corresponding to
 	// free pages!
+
+	// set up bounds in page
+	uint32_t io_low = (uint32_t) IOPHYSMEM / PGSIZE;
+	uint32_t io_high = (uint32_t) EXTPHYSMEM / PGSIZE;
+	uint32_t kernel_used = PADDR(boot_alloc(0)) / PGSIZE;
+
 	size_t i;
 	for (i = 0; i < npages; i++) {
+		if (i==0) // page 0
+		{
+			pages[i].pp_ref = 1;
+			continue;
+		}
+
+		if (i > io_low && i < io_high) // IO hole
+		{
+			pages[i].pp_ref = 1;
+			continue;
+		}
+
+		if (i > io_high && i < kernel_used) // kernel reserved
+		{
+			pages[i].pp_ref = 1;
+			continue;
+		}
+
 		pages[i].pp_ref = 0;
 		pages[i].pp_link = page_free_list;
 		page_free_list = &pages[i];
