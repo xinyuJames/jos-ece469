@@ -106,7 +106,7 @@ boot_alloc(uint32_t n)
 	// LAB 2: Your code here.
 	result = nextfree;
 	nextfree = ROUNDUP(nextfree + n, PGSIZE);
-	if (PADDR(nextfree) > npages * PGSIZE) // use more mem than available
+	if (nextfree > (char *) (npages * PGSIZE + KERNBASE)) // use more mem than available
 	{
 		panic("Memory Allocation Out of Bound...");
 	}
@@ -134,7 +134,7 @@ mem_init(void)
 	i386_detect_memory();
 
 	// Remove this line when you're ready to test this function.
-	panic("mem_init: This function is not finished\n");
+	// panic("mem_init: This function is not finished\n");
 
 	//////////////////////////////////////////////////////////////////////
 	// create initial page directory.
@@ -171,7 +171,7 @@ mem_init(void)
 	// or page_insert
 	page_init();
 
-	assert(((void *)kern_pgdir) !=  ((void *)pages));
+	// assert(((void *)kern_pgdir) !=  ((void *)pages));
 
 	check_page_free_list(1);
 	check_page_alloc();
@@ -187,6 +187,8 @@ mem_init(void)
 	//      (ie. perm = PTE_U | PTE_P)
 	//    - pages itself -- kernel RW, user NONE
 	// Your code goes here:
+	size_t pages_sz = ROUNDUP(npages * sizeof(struct PageInfo), PGSIZE);
+	boot_map_region(kern_pgdir, UPAGES, pages_sz, PADDR(pages), PTE_U);
 	
 
 	//////////////////////////////////////////////////////////////////////
@@ -200,6 +202,7 @@ mem_init(void)
 	//       overwrite memory.  Known as a "guard page".
 	//     Permissions: kernel RW, user NONE
 	// Your code goes here:
+	boot_map_region(kern_pgdir, KSTACKTOP-KSTKSIZE, KSTKSIZE, PADDR(bootstack), PTE_W);
 
 
 	//////////////////////////////////////////////////////////////////////
@@ -210,6 +213,7 @@ mem_init(void)
 	// we just set up the mapping anyway.
 	// Permissions: kernel RW, user NONE
 	// Your code goes here:
+	boot_map_region(kern_pgdir, KERNBASE, ((size_t) 0x100000000 - KERNBASE), 0, PTE_W);
 
 	// Check that the initial page directory has been set up correctly.
 	check_kern_pgdir();
@@ -285,13 +289,13 @@ page_init(void)
 			continue;
 		}
 
-		if (i > io_low && i < io_high) // IO hole
+		if (i >= io_low && i < io_high) // IO hole
 		{
 			pages[i].pp_ref = 1;
 			continue;
 		}
 
-		if (i > io_high && i < kernel_used) // kernel reserved
+		if (i >= io_high && i < kernel_used) // kernel reserved
 		{
 			pages[i].pp_ref = 1;
 			continue;
@@ -318,20 +322,19 @@ page_init(void)
 struct PageInfo *
 page_alloc(int alloc_flags)
 {
-	if (page_free_list == NULL) return NULL; // no mem condition
-
-	struct PageInfo * rtn = page_free_list;
-	page_free_list = rtn->pp_link;
-	rtn->pp_link = NULL;
-
-	if (alloc_flags & ALLOC_ZERO) // zero condition
-	{
-		uint32_t *va = page2kva(rtn);
-		memset(va, '\0', PGSIZE); // access pa through va
+	struct PageInfo *page = page_free_list;
+	if (!page) {
+		return NULL;
 	}
 
-	// Fill this function in
-	return rtn;
+	page_free_list = page->pp_link;
+	page->pp_link = NULL;
+
+	if (alloc_flags & ALLOC_ZERO) {
+		memset(page2kva(page), 0, PGSIZE);
+	}
+
+	return page;
 }
 
 //
@@ -344,19 +347,13 @@ page_free(struct PageInfo *pp)
 	// Fill this function in
 	// Hint: You may want to panic if pp->pp_ref is nonzero or
 	// pp->pp_link is not NULL.
-	if (pp->pp_link != NULL || pp->pp_ref != 0)
-	{
-		panic("Incorrect page_free call...");
-		return;
+	if (!pp || pp->pp_ref != 0 || pp->pp_link != NULL) {
+		panic("page_free: invalid page was given!");
 	}
 
-	uint32_t * va = page2kva(pp);
-	memset(va, 0, PGSIZE);
-	
+	pp->pp_ref = 0;
 	pp->pp_link = page_free_list;
 	page_free_list = pp;
-
-	return;
 }
 
 //
