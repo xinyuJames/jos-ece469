@@ -1,1 +1,24 @@
 Exercise 1:
+
+
+Exercise 2:
+
+
+Exercise 3: According to the virtual memory mapping provided in "entrypgdir.c", we check the physical and virtual through qemu and gdb
+
+physical:
+(qemu) xp/10x 0x0
+0000000000000000: 0xf000ff53 0xf000ff53 0xf000e2c3 0xf000ff53
+0000000000000010: 0xf000ff53 0xf000ff53 0xf000ff53 0xf000ff53
+0000000000000020: 0xf000fea5 0xf000e987
+
+virtual:
+(gdb) x/10x 0xf0000000
+0xf0000000:     0xf000ff53      0xf000ff53      0xf000e2c3      0xf000ff53
+0xf0000010:     0xf000ff53      0xf000ff53      0xf000ff53      0xf000ff53
+0xf0000020:     0xf000fea5      0xf000e987
+
+we can observe that they have same value.
+
+Exercise 4:
+pgdir_walk: returns the pte of the virtual memory. when we create a page table page, we use page_alloc, because page and page table page are both 4kb. Since the lower 12 bits are 0 (12 bits offset for a page), we use them to store information for the entry. for pde or pte, they store the physical address of the referene to next level. 
