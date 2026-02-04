@@ -1,24 +1,43 @@
-Exercise 1:
+Exercise 3:
+x should be uintptr_t because value is a virtual address returned as a pointer and then stored as an integer. While physaddr_t is only used for physical addresses, which this is not.
 
+Question 5a:
+    +-----+----------------------+---------------------------------------+
+    |Entry| Base Virtual Address |  Points to (logically)                |
+    +=====+======================+=======================================+
+    |1023 | 0xFFC00000           | Page table for top 4MB of phys memory |
+    +-----+----------------------+---------------------------------------+
+    |1022 | 0xFF800000           | Page table mapping physical address   |
+    |     |                      | from 0x0F800000 to 0x0FBFFFFF         |
+    +-----+----------------------+---------------------------------------+
+    |...  | ...                  | ...                                   |
+    +-----+----------------------+---------------------------------------+
+    |960  | 0xF0000000           | Start of page table for 4MB phys mem  |
+    +-----+----------------------+---------------------------------------+
+    |957  | 0xEF400000           | UVPT: read only user visible mapping  |
+    |     |                      | of the current page tables            |
+    +-----+----------------------+---------------------------------------+
+    |956  | 0xEF000000           | UPAGES: user read only mapping of the |
+    |     |                      | page[] array                          |
+    +-----+----------------------+---------------------------------------+
+    |955  | 0xEEC00000           | Empty                                 |
+    +-----+----------------------+---------------------------------------+
+    |2    | 0x00800000           | Empty                                 |
+    +-----+----------------------+---------------------------------------+
+    |1    | 0x00400000           | Empty                                 |
+    +-----+----------------------+---------------------------------------+
+    |0    | 0x00000000           | Empty                                 |
+    +-----+----------------------+---------------------------------------+
 
-Exercise 2:
+Question 5b:
+User programs cannot access kernel memory because kernel pages are mapped without the PTE_U bit set. This mechanism is enforced in hardware by checking PDE and PTE permission bits and blocking user-mode accesses.
 
+Question 5c:
+The operating system can support up to 256 MB of physical memory. This is because JOS directly maps physical memory into the virtual range starting at KERNBASE, which leaves only 256 MB of virtual address space for that direct physical mapping.
 
-Exercise 3: According to the virtual memory mapping provided in "entrypgdir.c", we check the physical and virtual through qemu and gdb
+Question 5d:
+If we have maximum amount of physical memory, the overhead would be around 772KB with small extras. The overhead consists mainly of the pages[] array (512KB), the page directory (4KB), and page tables (256KB), with small additional overhead for stack-related mappings.
 
-physical:
-(qemu) xp/10x 0x0
-0000000000000000: 0xf000ff53 0xf000ff53 0xf000e2c3 0xf000ff53
-0000000000000010: 0xf000ff53 0xf000ff53 0xf000ff53 0xf000ff53
-0000000000000020: 0xf000fea5 0xf000e987
+Question 5e:
+We transition to an EIP above KERNBASE at the jmp *%eax in entry.S after %eax is loaded with the relocated label. We can keep executing at a low EIP right after enabling paging because entrypgdir.c mapped both from 0 to 4MB and from KERNBASE to KERNBASE+4MB to the same physical of 0 to 4MB, so the next few instructions are still mapped. This transition is necessary because the kernel is linked to run at high virtual addresses, so after we enter C code with normal symbol addresses, we have to execute in the KERNBASE mapping.
 
-virtual:
-(gdb) x/10x 0xf0000000
-0xf0000000:     0xf000ff53      0xf000ff53      0xf000e2c3      0xf000ff53
-0xf0000010:     0xf000ff53      0xf000ff53      0xf000ff53      0xf000ff53
-0xf0000020:     0xf000fea5      0xf000e987
-
-we can observe that they have same value.
-
-Exercise 4:
-pgdir_walk: returns the pte of the virtual memory. when we create a page table page, we use page_alloc, because page and page table page are both 4kb. Since the lower 12 bits are 0 (12 bits offset for a page), we use them to store information for the entry. for pde or pte, they store the physical address of the referene to next level. 
