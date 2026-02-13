@@ -106,7 +106,7 @@ boot_alloc(uint32_t n)
 	// LAB 2: Your code here.
 	result = nextfree;
 	nextfree = ROUNDUP(nextfree + n, PGSIZE);
-	if (nextfree > (char *) (npages * PGSIZE + KERNBASE)) // use more mem than available
+	if (nextfree > (char *) (0x00400000 + KERNBASE)) // use more mem than available
 	{
 		panic("Memory Allocation Out of Bound...");
 	}
@@ -123,7 +123,7 @@ boot_alloc(uint32_t n)
 //
 // From UTOP to ULIM, the user is allowed to read but not write.
 // Above ULIM the user cannot read or write.
-void //TODO
+void
 mem_init(void)
 {
 	
@@ -404,11 +404,11 @@ pgdir_walk(pde_t *pgdir, const void *va, int create)
 
 	if (create == 0) return NULL;
 
-	struct PageInfo* page = page_alloc(ALLOC_ZERO); // page table is also a 4kb page, zero when alloc
-	if (!page) return NULL;
+	struct PageInfo* pt_page = page_alloc(ALLOC_ZERO); // page table is also a 4kb page, zero when alloc
+	if (!pt_page) return NULL;
 
-	page->pp_ref++;
-	*pde = page2pa(page) | PTE_P | PTE_U | PTE_W;
+	pt_page->pp_ref++;
+	*pde = page2pa(pt_page) | PTE_P | PTE_U | PTE_W;
 	pt = (uint32_t *) KADDR(PTE_ADDR(*pde));
 
 	return (pte_t *) &pt[PTX(va)];	
