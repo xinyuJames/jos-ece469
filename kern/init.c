@@ -3,6 +3,7 @@
 #include <inc/stdio.h>
 #include <inc/string.h>
 #include <inc/assert.h>
+#include <inc/x86.h>
 
 #include <kern/monitor.h>
 #include <kern/console.h>
@@ -26,7 +27,13 @@ i386_init(void)
 	// Can't call cprintf until after we do this!
 	cons_init();
 
-	cprintf("444544 decimal is %o octal!\n", 444544);
+	// (gdb) x/12x ap
+	// 0xf010ffd4:     0x01    0x00    0x00    0x00    0x03    0x00    0x00    0x00
+	// 0xf010ffdc:     0x04    0x00    0x00    0x00
+	// (gdb) x/s fmt
+	// 0xf0101ab7:     "x %d, y %x, z %d\n"
+	// int x = 1, y = 3, z = 4;
+	// cprintf("x %d, y %x, z %d\n", x, y, z);
 
 	// Lab 2 memory management initialization functions
 	mem_init();

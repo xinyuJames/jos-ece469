@@ -40,7 +40,7 @@ bootmain(void)
 {
 	struct Proghdr *ph, *eph;
 
-	// read 1st page off disk
+	// read 1st page off disk; 0x10000 is a temporary spot to process ELF header
 	readseg((uint32_t) ELFHDR, SECTSIZE*8, 0);
 
 	// is this a valid ELF?
@@ -66,6 +66,7 @@ bad:
 		/* do nothing */;
 }
 
+// copies count bytes from disk position offset into memory at address pa
 // Read 'count' bytes at 'offset' from kernel into physical address 'pa'.
 // Might copy more than asked
 void

@@ -10,9 +10,17 @@
 #include <kern/console.h>
 #include <kern/monitor.h>
 #include <kern/kdebug.h>
+
+#include <inc/mmu.h>
+#include <kern/pmap.h>
 #include <kern/trap.h>
 
 #define CMDBUF_SIZE	80	// enough for one VGA text line
+
+static int mon_showmappings(int argc, char **argv, struct Trapframe *tf);
+static int mon_setperm(int argc, char **argv, struct Trapframe *tf);
+static int mon_dumpva(int argc, char **argv, struct Trapframe *tf);
+static int mon_dumppa(int argc, char **argv, struct Trapframe *tf);
 
 
 struct Command {
@@ -26,6 +34,11 @@ struct Command {
 static struct Command commands[] = {
 	{ "help", "Display this list of commands", mon_help },
 	{ "kerninfo", "Display information about the kernel", mon_kerninfo },
+
+	{ "showmappings", "Show VA->PA mappings and perm bits: showmappings va_start va_end", mon_showmappings },
+	{ "setperm", "Change PTE perms: setperm va [+u|-u] [+w|-w] [+p|-p]", mon_setperm },
+	{ "dumpva", "Dump memory by virtual address: dumpva va_start va_end", mon_dumpva },
+	{ "dumppa", "Dump memory by physical address: dumppa pa_start pa_end", mon_dumppa },
 };
 
 /***** Implementations of basic kernel monitor commands *****/
@@ -62,6 +75,222 @@ mon_backtrace(int argc, char **argv, struct Trapframe *tf)
 	// LAB 1: Your code here.
     // HINT 1: use read_ebp().
     // HINT 2: print the current ebp on the first line (not current_ebp[0])
+	uint32_t ebp, eip, arg1, arg2, arg3, arg4, arg5;
+
+	cprintf("Stack backtrace:\n");
+	for (ebp=read_ebp(); ebp>0; ebp= *((uint32_t *)ebp))
+	{
+		struct Eipdebuginfo info = {0};
+		// location of eip will be one location higher than ebp in mem
+		eip = *((uint32_t *)(ebp + 4));
+		// arguments will be higher than eip
+		arg1 = *((uint32_t *)(ebp + 2*4));
+		arg2 = *((uint32_t *)(ebp + 3*4));
+		arg3 = *((uint32_t *)(ebp + 4*4));
+		arg4 = *((uint32_t *)(ebp + 5*4));
+		arg5 = *((uint32_t *)(ebp + 6*4));
+		cprintf("  ebp %08x eip %08x args %08x %08x %08x %08x %08x\n", ebp, eip, arg1, arg2, arg3, arg4, arg5);
+		debuginfo_eip(eip, &info);
+		cprintf("         %s:%d: %.*s+%d\n",
+				info.eip_file,
+				info.eip_line,
+				info.eip_fn_namelen,
+				info.eip_fn_name,
+				eip - info.eip_fn_addr);
+	}
+	return 0;
+}
+
+static uintptr_t
+parse_addr(const char *s)
+{
+	// strtol handles 0x... or decimal
+	return (uintptr_t) strtol(s, 0, 0);
+}
+
+static void
+print_perm(uint32_t pte)
+{
+	cprintf("%c", (pte & PTE_P) ? 'P' : '-');
+	cprintf("%c", (pte & PTE_W) ? 'W' : '-');
+	cprintf("%c", (pte & PTE_U) ? 'U' : '-');
+	cprintf("%c", (pte & PTE_PWT) ? 'T' : '-');
+	cprintf("%c", (pte & PTE_PCD) ? 'C' : '-');
+	cprintf("%c", (pte & PTE_A) ? 'A' : '-');
+	cprintf("%c", (pte & PTE_D) ? 'D' : '-');
+}
+
+static int
+mon_showmappings(int argc, char **argv, struct Trapframe *tf)
+{
+	if (argc != 3) {
+		cprintf("Usage: showmappings va_start va_end\n");
+		return 0;
+	}
+
+	uintptr_t start = parse_addr(argv[1]);
+	uintptr_t end = parse_addr(argv[2]);
+
+	if (end < start) {
+		uintptr_t tmp = start;
+		start = end;
+		end = tmp;
+	}
+
+	uintptr_t va;
+	start = ROUNDDOWN(start, PGSIZE);
+	end = ROUNDDOWN(end, PGSIZE);
+
+	for (va = start; ; va += PGSIZE) {
+		pde_t pde = kern_pgdir[PDX(va)];
+		if (!(pde & PTE_P)) {
+			cprintf("va %08x: unmapped (no PDE)\n", va);
+		} else {
+			pte_t *pte = pgdir_walk(kern_pgdir, (void *) va, 0);
+			if (!pte || !(*pte & PTE_P)) {
+				cprintf("va %08x: unmapped (no PTE)\n", va);
+			} else {
+				physaddr_t pa = PTE_ADDR(*pte);
+				cprintf("va %08x -> pa %08x  perm ", va, pa);
+				print_perm(*pte);
+				cprintf("\n");
+			}
+		}
+
+		if (va == end)
+			break;
+	}
+
+	return 0;
+}
+
+static int
+mon_setperm(int argc, char **argv, struct Trapframe *tf)
+{
+	if (argc < 3) {
+		cprintf("Usage: setperm va [+u|-u] [+w|-w] [+p|-p]\n");
+		return 0;
+	}
+
+	uintptr_t va = ROUNDDOWN(parse_addr(argv[1]), PGSIZE);
+
+	pte_t *pte = pgdir_walk(kern_pgdir, (void *) va, 0);
+	if (!pte || !(*pte & PTE_P)) {
+		cprintf("va %08x: not mapped\n", va);
+		return 0;
+	}
+
+	uint32_t flags = *pte & 0xFFF;
+	uint32_t pa = PTE_ADDR(*pte);
+
+	int i;
+	for (i = 2; i < argc; i++) {
+		char *op = argv[i];
+		if ((op[0] != '+' && op[0] != '-') || op[2] != 0) {
+			cprintf("bad flag '%s' (expected +u, -w, etc)\n", op);
+			return 0;
+		}
+
+		uint32_t bit = 0;
+		if (op[1] == 'u') bit = PTE_U;
+		else if (op[1] == 'w') bit = PTE_W;
+		else if (op[1] == 'p') bit = PTE_P;
+		else {
+			cprintf("unknown flag '%s'\n", op);
+			return 0;
+		}
+
+		if (op[0] == '+') flags |= bit;
+		else flags &= ~bit;
+	}
+
+	*pte = pa | flags;
+	tlb_invalidate(kern_pgdir, (void *) va);
+
+	cprintf("va %08x updated: pa %08x  perm ", va, pa);
+	print_perm(*pte);
+	cprintf("\n");
+
+	return 0;
+}
+
+static void
+dump_line(uintptr_t addr, uint8_t *p, int n)
+{
+	int i;
+	cprintf("%08x: ", addr);
+	for (i = 0; i < n; i++) {
+		cprintf("%02x ", p[i]);
+	}
+	cprintf("\n");
+}
+
+static int
+mon_dumpva(int argc, char **argv, struct Trapframe *tf)
+{
+	if (argc != 3) {
+		cprintf("Usage: dumpva va_start va_end\n");
+		return 0;
+	}
+
+	uintptr_t start = parse_addr(argv[1]);
+	uintptr_t end = parse_addr(argv[2]);
+
+	if (end < start) {
+		uintptr_t tmp = start;
+		start = end;
+		end = tmp;
+	}
+
+	uintptr_t addr = start;
+	while (addr <= end) {
+		// Verify mapping for this page
+		pte_t *pte = pgdir_walk(kern_pgdir, (void *) addr, 0);
+		if (!pte || !(*pte & PTE_P)) {
+			cprintf("va %08x: unmapped\n", ROUNDDOWN(addr, PGSIZE));
+			return 0;
+		}
+
+		// Dump up to 16 bytes, but do not cross end
+		int n = 16;
+		if (end - addr + 1 < (uintptr_t) n)
+			n = (int) (end - addr + 1);
+
+		dump_line(addr, (uint8_t *) addr, n);
+		addr += n;
+	}
+
+	return 0;
+}
+
+static int
+mon_dumppa(int argc, char **argv, struct Trapframe *tf)
+{
+	if (argc != 3) {
+		cprintf("Usage: dumppa pa_start pa_end\n");
+		return 0;
+	}
+
+	physaddr_t start = (physaddr_t) parse_addr(argv[1]);
+	physaddr_t end = (physaddr_t) parse_addr(argv[2]);
+
+	if (end < start) {
+		physaddr_t tmp = start;
+		start = end;
+		end = tmp;
+	}
+
+	physaddr_t pa = start;
+	while (pa <= end) {
+		int n = 16;
+		if (end - pa + 1 < (physaddr_t) n)
+			n = (int) (end - pa + 1);
+
+		uint8_t *kva = (uint8_t *) KADDR(pa);
+		dump_line((uintptr_t) pa, kva, n);
+		pa += n;
+	}
+
 	return 0;
 }
 
