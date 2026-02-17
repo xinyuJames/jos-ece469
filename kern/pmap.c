@@ -5,6 +5,7 @@
 #include <inc/error.h>
 #include <inc/string.h>
 #include <inc/assert.h>
+#include <inc/env.h>
 
 #include <kern/pmap.h>
 #include <kern/kclock.h>
@@ -19,6 +20,7 @@ static size_t npages_basemem;	// Amount of base memory (in pages)
 pde_t *kern_pgdir;		// Kernel's initial page directory
 struct PageInfo *pages;		// Physical page state array
 static struct PageInfo *page_free_list;	// Free list of physical pages
+extern struct Env *envs;	// All environments
 
 
 // --------------------------------------------------------------
@@ -159,9 +161,14 @@ mem_init(void)
 	// Your code goes here:
 	pages = (struct PageInfo *) boot_alloc(npages * sizeof(struct PageInfo));
 	memset(pages, 0, sizeof(struct PageInfo) * npages);
-	
 
-
+	//////////////////////////////////////////////////////////////////////
+	// Allocate an array of NENV 'struct Env's and store it in 'envs'.
+	// The kernel uses this array to keep track of environments.
+	// Use memset to initialize all fields of each struct Env to 0.
+	// Your code goes here:
+	envs = (struct Env *) boot_alloc(NENV * sizeof(struct Env));
+	memset(envs, 0, sizeof(struct Env) * NENV);
 
 	//////////////////////////////////////////////////////////////////////
 	// Now that we've allocated the initial kernel data structures, we set
@@ -189,7 +196,16 @@ mem_init(void)
 	// Your code goes here:
 	size_t pages_sz = ROUNDUP(npages * sizeof(struct PageInfo), PGSIZE);
 	boot_map_region(kern_pgdir, UPAGES, pages_sz, PADDR(pages), PTE_U);
-	
+
+	//////////////////////////////////////////////////////////////////////
+	// Map 'envs' read-only by the user at linear address UENVS
+	// Permissions:
+	//    - the new image at UENVS -- kernel R, user R
+	//      (ie. perm = PTE_U | PTE_P)
+	//    - envs itself -- kernel RW, user NONE
+	// Your code goes here:
+	size_t envs_sz = ROUNDUP(NENV * sizeof(struct Env), PGSIZE);
+	boot_map_region(kern_pgdir, UENVS, envs_sz, PADDR(envs), PTE_U);
 
 	//////////////////////////////////////////////////////////////////////
 	// Use the physical memory that 'bootstack' refers to as the kernel
@@ -722,6 +738,7 @@ check_kern_pgdir(void)
 		case PDX(UVPT):
 		case PDX(KSTACKTOP-1):
 		case PDX(UPAGES):
+		case PDX(UENVS):
 			assert(pgdir[i] & PTE_P);
 			break;
 		default:
