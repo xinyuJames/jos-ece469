@@ -9,6 +9,7 @@
 
 #include <kern/pmap.h>
 #include <kern/kclock.h>
+#include <kern/env.h>
 
 #include <kern/hidden.h>
 
@@ -581,7 +582,25 @@ int
 user_mem_check(struct Env *env, const void *va, size_t len, int perm)
 {
 	// LAB 3: Your code here.
+	uintptr_t start = ROUNDDOWN((uintptr_t) va, PGSIZE);
+	uintptr_t end   = ROUNDUP((uintptr_t) va + len, PGSIZE);
+	uintptr_t addr;
 
+	for (addr = start; addr < end; addr += PGSIZE) {
+		// First erroneous address: va itself if this is the first
+		// (possibly partial) page, otherwise the page-aligned addr.
+		uintptr_t fault_addr = (addr < (uintptr_t) va) ? (uintptr_t) va : addr;
+
+		if (addr >= ULIM) {
+			user_mem_check_addr = fault_addr;
+			return -E_FAULT;
+		}
+		pte_t *pte = pgdir_walk(env->env_pgdir, (void *) addr, 0);
+		if (!pte || (*pte & (perm | PTE_P)) != (perm | PTE_P)) {
+			user_mem_check_addr = fault_addr;
+			return -E_FAULT;
+		}
+	}
 	return 0;
 }
 
@@ -598,7 +617,7 @@ user_mem_assert(struct Env *env, const void *va, size_t len, int perm)
 	if (user_mem_check(env, va, len, perm | PTE_U) < 0) {
 		cprintf("[%08x] user_mem_check assertion failure for "
 			"va %08x\n", env->env_id, user_mem_check_addr);
-		// env_destroy(env);	// may not return
+		env_destroy(env);	// may not return
 	}
 }
 // --------------------------------------------------------------
