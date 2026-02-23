@@ -47,15 +47,43 @@
  * Lab 3: Your code here for generating entry points for the different traps.
  */
 
-// HINT 1 : TRAPHANDLER_NOEC(t_divide, T_DIVIDE);
-//          Do something like this if there is no error code for the trap
-// HINT 2 : TRAPHANDLER(t_dblflt, T_DBLFLT);
-//          Do something like this if the trap includes an error code..
-// HINT 3 : READ Intel's manual to check if the trap includes an error code
-//          or not...
+// No error code pushed by CPU:
+TRAPHANDLER_NOEC(t_divide,  T_DIVIDE)   // 0  divide error
+TRAPHANDLER_NOEC(t_debug,   T_DEBUG)    // 1  debug exception
+TRAPHANDLER_NOEC(t_nmi,     T_NMI)      // 2  non-maskable interrupt
+TRAPHANDLER_NOEC(t_brkpt,   T_BRKPT)    // 3  breakpoint
+TRAPHANDLER_NOEC(t_oflow,   T_OFLOW)    // 4  overflow
+TRAPHANDLER_NOEC(t_bound,   T_BOUND)    // 5  bounds check
+TRAPHANDLER_NOEC(t_illop,   T_ILLOP)    // 6  illegal opcode
+TRAPHANDLER_NOEC(t_device,  T_DEVICE)   // 7  device not available
+
+// Error code pushed by CPU:
+TRAPHANDLER(t_dblflt,  T_DBLFLT)        // 8  double fault
+TRAPHANDLER(t_tss,     T_TSS)           // 10 invalid TSS
+TRAPHANDLER(t_segnp,   T_SEGNP)         // 11 segment not present
+TRAPHANDLER(t_stack,   T_STACK)         // 12 stack exception
+TRAPHANDLER(t_gpflt,   T_GPFLT)         // 13 general protection fault
+TRAPHANDLER(t_pgflt,   T_PGFLT)         // 14 page fault
+
+// No error code:
+TRAPHANDLER_NOEC(t_fperr,   T_FPERR)    // 16 floating point error
+TRAPHANDLER(t_align,   T_ALIGN)         // 17 alignment check (has error code)
+TRAPHANDLER_NOEC(t_mchk,    T_MCHK)     // 18 machine check
+TRAPHANDLER_NOEC(t_simderr, T_SIMDERR)  // 19 SIMD floating point error
+
+TRAPHANDLER_NOEC(t_syscall, T_SYSCALL)  // 48 system call
 
 /*
  * Lab 3: Your code here for _alltraps
  */
+_alltraps:
+	pushl %ds
+	pushl %es
+	pusha
+	movw $GD_KD, %ax
+	movw %ax, %ds
+	movw %ax, %es
+	pushl %esp
+	call trap
 
 
