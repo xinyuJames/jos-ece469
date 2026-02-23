@@ -74,6 +74,40 @@ TRAPHANDLER_NOEC(t_simderr, T_SIMDERR)  // 19 SIMD floating point error
 TRAPHANDLER_NOEC(t_syscall, T_SYSCALL)  // 48 system call
 
 /*
+ * Challenge 2: Fast system call handler for sysenter/sysexit.
+ *
+ * Register convention on entry (set by user lib/fast_syscall):
+ *   eax = syscall number
+ *   edx = a1, ecx = a2, ebx = a3, edi = a4
+ *   esi = user return EIP  (where sysexit should jump back)
+ *   ebp = user return ESP  (what sysexit should restore to esp)
+ *   esp = KSTACKTOP        (loaded from IA32_SYSENTER_ESP MSR by CPU)
+ */
+.globl sysenter_handler
+.type sysenter_handler, @function
+.align 2
+sysenter_handler:
+	pushl %ebp			/* save user return ESP on kernel stack */
+	pushl %esi			/* save user return EIP on kernel stack */
+	movw $GD_KD, %ax
+	movw %ax, %ds
+	movw %ax, %es
+	pushl $0			/* a5 = 0 */
+	pushl %edi			/* a4 */
+	pushl %ebx			/* a3 */
+	pushl %ecx			/* a2 */
+	pushl %edx			/* a1 */
+	pushl %eax			/* syscall number */
+	call syscall
+	addl $24, %esp			/* pop 6 arguments */
+	popl %edx			/* edx = return EIP (sysexit: new EIP) */
+	popl %ecx			/* ecx = return ESP (sysexit: new ESP) */
+	movw $(GD_UD|3), %ax		/* restore user data segment */
+	movw %ax, %ds
+	movw %ax, %es
+	sysexit
+
+/*
  * Lab 3: Your code here for _alltraps
  */
 _alltraps:

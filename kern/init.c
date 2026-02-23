@@ -42,6 +42,16 @@ i386_init(void)
 	env_init();
 	trap_init();
 
+	// Challenge 2: set up sysenter/sysexit MSRs for fast system calls.
+	// IA32_SYSENTER_CS (0x174): kernel code segment selector.
+	//   sysexit uses CS+16 (GD_UT) and CS+24 (GD_UD) for user CS/SS.
+	// IA32_SYSENTER_ESP (0x175): kernel stack top.
+	// IA32_SYSENTER_EIP (0x176): address of sysenter_handler.
+	extern void sysenter_handler(void);
+	wrmsr(0x174, GD_KT);
+	wrmsr(0x175, KSTACKTOP);
+	wrmsr(0x176, (uint32_t) sysenter_handler);
+
 #if defined(TEST)
 	// Don't touch -- used by grading script!
 	ENV_CREATE(TEST, ENV_TYPE_USER);
