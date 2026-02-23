@@ -30,6 +30,9 @@ struct Command {
 	int (*func)(int argc, char** argv, struct Trapframe* tf);
 };
 
+static int mon_continue(int argc, char **argv, struct Trapframe *tf);
+static int mon_si(int argc, char **argv, struct Trapframe *tf);
+
 // LAB 1: add your command to here...
 static struct Command commands[] = {
 	{ "help", "Display this list of commands", mon_help },
@@ -39,6 +42,9 @@ static struct Command commands[] = {
 	{ "setperm", "Change PTE perms: setperm va [+u|-u] [+w|-w] [+p|-p]", mon_setperm },
 	{ "dumpva", "Dump memory by virtual address: dumpva va_start va_end", mon_dumpva },
 	{ "dumppa", "Dump memory by physical address: dumppa pa_start pa_end", mon_dumppa },
+
+	{ "continue", "Continue execution after a breakpoint", mon_continue },
+	{ "si", "Single-step one instruction", mon_si },
 };
 
 /***** Implementations of basic kernel monitor commands *****/
@@ -295,6 +301,30 @@ mon_dumppa(int argc, char **argv, struct Trapframe *tf)
 }
 
 
+
+static int
+mon_continue(int argc, char **argv, struct Trapframe *tf)
+{
+	if (tf == NULL) {
+		cprintf("No trapframe: not in an exception context\n");
+		return 0;
+	}
+	// Clear the Trap Flag so execution runs freely
+	tf->tf_eflags &= ~FL_TF;
+	return -1; // exit the monitor loop
+}
+
+static int
+mon_si(int argc, char **argv, struct Trapframe *tf)
+{
+	if (tf == NULL) {
+		cprintf("No trapframe: not in an exception context\n");
+		return 0;
+	}
+	// Set the Trap Flag: CPU will fire T_DEBUG after the next instruction
+	tf->tf_eflags |= FL_TF;
+	return -1; // exit the monitor loop, execute one instruction, then re-trap
+}
 
 /***** Kernel monitor command interpreter *****/
 
