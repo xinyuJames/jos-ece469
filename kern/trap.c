@@ -201,6 +201,17 @@ trap_dispatch(struct Trapframe *tf)
 		monitor(tf);
 		return;
 	}
+	if (tf->tf_trapno == T_SYSCALL) {
+		tf->tf_regs.reg_eax = syscall(
+			tf->tf_regs.reg_eax,  // syscall number
+			tf->tf_regs.reg_edx,  // a1
+			tf->tf_regs.reg_ecx,  // a2
+			tf->tf_regs.reg_ebx,  // a3
+			tf->tf_regs.reg_edi,  // a4
+			tf->tf_regs.reg_esi   // a5
+		);
+		return;
+	}
 
 	// Unexpected trap: The user process or the kernel has a bug.
 	print_trapframe(tf);
