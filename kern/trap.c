@@ -218,6 +218,7 @@ trap_dispatch(struct Trapframe *tf)
 	if (tf->tf_cs == GD_KT)
 		panic("unhandled trap in kernel");
 	else {
+		// cprintf("Hellllllllllllllllllllo\n");
 		env_destroy(curenv);
 		return;
 	}
@@ -237,7 +238,7 @@ trap(struct Trapframe *tf)
 
 	cprintf("Incoming TRAP frame at %p\n", tf);
 
-	if ((tf->tf_cs & 3) == 3) {
+	if ((tf->tf_cs & 3) == 3) { // tf_cs hold CPL
 		// Trapped from user mode.
 		assert(curenv);
 
