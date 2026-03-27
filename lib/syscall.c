@@ -37,6 +37,30 @@ syscall(int num, int check, uint32_t a1, uint32_t a2, uint32_t a3, uint32_t a4, 
 	return ret;
 }
 
+// Fast system call using the sysenter/sysexit mechanism (Challenge 2).
+// Register convention:
+//   eax = syscall number
+//   edx = a1, ecx = a2, ebx = a3, edi = a4
+//   esi = return EIP (set to label after sysenter)
+//   ebp = return ESP (set to current esp so sysexit restores stack)
+//   esp is trashed by sysenter; restored by sysexit via ebp/ecx
+int32_t
+fast_syscall(int num, uint32_t a1, uint32_t a2, uint32_t a3, uint32_t a4)
+{
+	int32_t ret;
+	asm volatile(
+		"pushl %%ebp\n\t"		/* save caller's frame pointer */
+		"movl %%esp, %%ebp\n\t"	/* ebp = return esp for sysexit */
+		"leal 1f, %%esi\n\t"		/* esi = return eip for sysexit */
+		"sysenter\n\t"
+		"1:\n\t"
+		"popl %%ebp\n\t"		/* restore caller's frame pointer */
+		: "=a" (ret)
+		: "a" (num), "d" (a1), "c" (a2), "b" (a3), "D" (a4)
+		: "esi", "cc", "memory");
+	return ret;
+}
+
 void
 sys_cputs(const char *s, size_t len)
 {

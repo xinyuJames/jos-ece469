@@ -122,8 +122,10 @@ all:
 	   $(OBJDIR)/lib/%.o $(OBJDIR)/fs/%.o $(OBJDIR)/net/%.o \
 	   $(OBJDIR)/user/%.o
 
-KERN_CFLAGS := $(CFLAGS) -DJOS_KERNEL -ggdb3
-USER_CFLAGS := $(CFLAGS) -DJOS_USER -ggdb3
+# KERN_CFLAGS := $(CFLAGS) -DJOS_KERNEL -gstabs -ggdb3
+# USER_CFLAGS := $(CFLAGS) -DJOS_USER -gstabs -ggdb3
+KERN_CFLAGS := $(CFLAGS) -DJOS_KERNEL -gstabs
+USER_CFLAGS := $(CFLAGS) -DJOS_USER -gstabs
 
 # Update .vars.X if variable X has changed since the last make run.
 #
@@ -159,10 +161,10 @@ gdb:
 
 pre-qemu: .gdbinit
 
-qemu: $(IMAGES) pre-qemu
-	$(QEMU) -nographic $(QEMUOPTS)
+qemu: $(IMAGES) pre-qemu # changed to GUI display
+	$(QEMU) $(QEMUOPTS)
 
-qemu-nox: $(IMAGES) pre-qemu
+qemu-nox: $(IMAGES) pre-qemu # no display
 	@echo "***"
 	@echo "*** Use Ctrl-a x to exit qemu"
 	@echo "***"

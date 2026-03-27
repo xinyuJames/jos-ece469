@@ -130,6 +130,7 @@ lpt_putc(int c)
 static unsigned addr_6845;
 static uint16_t *crt_buf;
 static uint16_t crt_pos;
+static uint16_t crt_attr = 0x0700;
 
 static void
 cga_init(void)
@@ -166,7 +167,7 @@ cga_putc(int c)
 {
 	// if no attribute given, then use black on white
 	if (!(c & ~0xFF))
-		c |= 0x0700;
+		c |= crt_attr;
 
 	switch (c & 0xff) {
 	case '\b':
@@ -193,13 +194,13 @@ cga_putc(int c)
 		break;
 	}
 
-	// What is the purpose of this?
+	// What is the purpose of this? ans: scroll lines when crt_pos fill whole window
 	if (crt_pos >= CRT_SIZE) {
 		int i;
 
 		memmove(crt_buf, crt_buf + CRT_COLS, (CRT_SIZE - CRT_COLS) * sizeof(uint16_t));
 		for (i = CRT_SIZE - CRT_COLS; i < CRT_SIZE; i++)
-			crt_buf[i] = 0x0700 | ' ';
+			crt_buf[i] = crt_attr | ' ';
 		crt_pos -= CRT_COLS;
 	}
 
@@ -433,14 +434,107 @@ cons_getc(void)
 	return 0;
 }
 
+// ANSI to VGA basic color conversion
+static int
+ansi_to_vga_basic(int ansi) {
+    // ANSI: 0 black, 1 red, 2 green, 3 yellow, 4 blue, 5 magenta, 6 cyan, 7 white
+    return ansi & 7;
+}
+
+static void
+set_vga_fg(int fg) {
+    uint8_t attr = (crt_attr >> 8) & 0xFF;
+    attr = (attr & 0xF0) | (fg & 0x0F);
+    crt_attr = ((uint16_t)attr) << 8;
+}
+
+static void
+set_vga_bg(int bg) {
+    uint8_t attr = (crt_attr >> 8) & 0xFF;
+    attr = (attr & 0x0F) | ((bg & 0x0F) << 4);
+    crt_attr = ((uint16_t)attr) << 8;
+}
+
 // output a character to the console
 static void
 cons_putc(int c)
 {
-	serial_putc(c);
-	lpt_putc(c);
-	cga_putc(c);
+    // ANSI parser state
+    static int esc = 0;          // 0 normal, 1 saw ESC, 2 inside CSI after '['
+    static int param = -1;       // current numeric parameter being parsed
+    static int params[4];
+    static int nparams = 0;
+
+    if (esc == 0) {
+        if ((c & 0xFF) == 0x1b) {   // ESC
+            esc = 1;
+            return;
+        }
+    } else if (esc == 1) {
+        if ((c & 0xFF) == '[') {    // CSI
+            esc = 2;
+            param = -1;
+            nparams = 0;
+            return;
+        }
+        // Not CSI, print literal ESC then this char
+        esc = 0;
+        serial_putc(0x1b);
+        lpt_putc(0x1b);
+        cga_putc(0x1b);
+        // fall through to normal printing of c
+    } else if (esc == 2) {
+        int ch = c & 0xFF;
+
+        if (ch >= '0' && ch <= '9') {
+            if (param < 0) param = 0;
+            param = param * 10 + (ch - '0');
+            return;
+        }
+        if (ch == ';') {
+            if (nparams < 4) params[nparams++] = (param < 0) ? 0 : param;
+            param = -1;
+            return;
+        }
+        if (ch == 'm') {
+            if (nparams < 4) params[nparams++] = (param < 0) ? 0 : param;
+
+            // Apply SGR params
+            for (int i = 0; i < nparams; i++) {
+                int p = params[i];
+                if (p == 0) {
+                    crt_attr = 0x0700;
+                } else if (p == 1) {
+                    // bright: bump fg into 8..15 if it is 0..7
+                    uint8_t attr = (crt_attr >> 8) & 0xFF;
+                    int fg = attr & 0x0F;
+                    if (fg < 8) set_vga_fg(fg + 8);
+                } else if (p >= 30 && p <= 37) {
+                    set_vga_fg(ansi_to_vga_basic(p - 30));
+                } else if (p >= 40 && p <= 47) {
+                    set_vga_bg(ansi_to_vga_basic(p - 40));
+                } else if (p >= 90 && p <= 97) {
+                    set_vga_fg(ansi_to_vga_basic(p - 90) + 8);
+                } else if (p >= 100 && p <= 107) {
+                    set_vga_bg(ansi_to_vga_basic(p - 100) + 8);
+                }
+            }
+
+            esc = 0;
+            return;
+        }
+
+        // Unknown CSI sequence, just ignore it
+        esc = 0;
+        return;
+    }
+
+    // Normal output
+    serial_putc(c);
+    lpt_putc(c);
+    cga_putc(c);
 }
+
 
 // initialize the console devices
 void

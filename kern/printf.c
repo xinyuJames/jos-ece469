@@ -28,7 +28,7 @@ cprintf(const char *fmt, ...)
 	va_list ap;
 	int cnt;
 
-	va_start(ap, fmt);
+	va_start(ap, fmt); // this take ... as va_list and store in fmt
 	cnt = vcprintf(fmt, ap);
 	va_end(ap);
 
