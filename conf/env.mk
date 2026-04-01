@@ -17,4 +17,4 @@ V = @
 # If the makefile cannot find your QEMU binary, uncomment the
 # following line and set it to the full path to QEMU.
 #
-# QEMU=
+QEMU=/home/shay/a/chu244/ECE46900/jos-ece469/qemu-wrapper.sh
