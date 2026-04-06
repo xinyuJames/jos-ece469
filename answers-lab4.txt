@@ -1,0 +1,9 @@
+EX2:
+1. The purpose of MPBOOTPHYS is the calculation of virtual address that was served as linked address into load address, which is the physical address. We need this mapping because MMU is not activated at the time. Boos.S doesn't need it because even if the paging is not enable, it has its own linker script that won't link to virtual memory.
+
+EX5:
+1. During a CPU1 interrupt, or syscall (essentially also a interrupt), the hardware will pack the trapframe and push it to the stack, while the CPU0 is still running and having the lock. During this gap time, the CPU1 doesn't have the lock, but push his part of code onto the stack, which is not acceptable and will cause problems.
+
+EX6:
+1. As per said in "env_setup_vm()", "The VA space of all envs is identical above UTOP". Above UTOP is the RO ENVS page, therefore it can be accessed by all the environments, since the mapping is the same.
+2. Old registers are saved because they have information of where this process is left at, so next time the process runs, it knows where to keep going. This is happening in trapentry.S and trap(), Where trapframe is saved into each's kernel stack.
