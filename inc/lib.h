@@ -46,6 +46,7 @@ void	sys_cputs(const char *string, size_t len);
 int	sys_cgetc(void);
 envid_t	sys_getenvid(void);
 int	sys_env_destroy(envid_t);
+int32_t	fast_syscall(int num, uint32_t a1, uint32_t a2, uint32_t a3, uint32_t a4);
 void	sys_yield(void);
 static envid_t sys_exofork(void);
 int	sys_env_set_status(envid_t env, int status);

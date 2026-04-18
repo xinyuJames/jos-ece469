@@ -1,0 +1,9 @@
+EX4:
+1. I believe we have to make distinction between trap with error code and trap without error code. In "trapentry.S", 
+if there 's no error, the assembl will push a dummy 0 to ensure correct allignment. Having all the interrupts/exceptions
+follow this rule makes code clearer and safer. Without the feature, the code will be misalligned, which is bad.
+
+2. Calling trap 13 is the correct behaviour, because "softint.c" runs in user environment, and directly triggering a kernel
+interrupt violates the previlige level constraint, which correspond to the trap 13. If we can make it call any trap it 
+wants, this will become a security issue. Furthermore, we will treat it like a page fault, which will look into CR2 and
+may cause unexpected result, because CR2 may have the wrong record, since there's actually no page fault occurs
