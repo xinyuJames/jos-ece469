@@ -6,19 +6,19 @@
 struct Elf {
 	uint32_t e_magic;	// must equal ELF_MAGIC
 	uint8_t e_elf[12];
-	uint16_t e_type;
-	uint16_t e_machine;
-	uint32_t e_version;
-	uint32_t e_entry; // entry point of the kernel
-	uint32_t e_phoff;
-	uint32_t e_shoff;
-	uint32_t e_flags;
-	uint16_t e_ehsize;
-	uint16_t e_phentsize;
-	uint16_t e_phnum;
-	uint16_t e_shentsize;
-	uint16_t e_shnum;
-	uint16_t e_shstrndx;
+	uint16_t e_type;	// object file type
+	uint16_t e_machine; // required architecture for the file
+	uint32_t e_version;	// object file version
+	uint32_t e_entry; 	// entry point of the kernel
+	uint32_t e_phoff;	// program header table's file offset in byte
+	uint32_t e_shoff;	// section header table's file offset in byte
+	uint32_t e_flags;	
+	uint16_t e_ehsize;	// header size in byte
+	uint16_t e_phentsize;	// program header each entry size
+	uint16_t e_phnum;	// number of entries in program header
+	uint16_t e_shentsize;	// section header each entry size
+	uint16_t e_shnum;	// number of entries in section header
+	uint16_t e_shstrndx;	// name -> section header table
 };
 
 struct Proghdr {

@@ -32,10 +32,10 @@ typedef int32_t envid_t;
 // Values of env_status in struct Env
 enum {
 	ENV_FREE = 0,
-	ENV_DYING,
+	ENV_DYING, // zombie proc
 	ENV_RUNNABLE,
-	ENV_RUNNING,
-	ENV_NOT_RUNNABLE
+	ENV_RUNNING, 
+	ENV_NOT_RUNNABLE // may be waiting for IPC
 };
 
 // Special environment types

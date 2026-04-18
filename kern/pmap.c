@@ -166,7 +166,7 @@ mem_init(void)
 	// Allocate an array of NENV 'struct Env's and store it in 'envs'.
 	// The kernel uses this array to keep track of environments.
 	// Use memset to initialize all fields of each struct Env to 0.
-	// Your code goes here:
+	// [LAB3]: Your code goes here
 	envs = (struct Env *) boot_alloc(NENV * sizeof(struct Env));
 	memset(envs, 0, sizeof(struct Env) * NENV);
 
@@ -598,7 +598,7 @@ user_mem_assert(struct Env *env, const void *va, size_t len, int perm)
 	if (user_mem_check(env, va, len, perm | PTE_U) < 0) {
 		cprintf("[%08x] user_mem_check assertion failure for "
 			"va %08x\n", env->env_id, user_mem_check_addr);
-		env_destroy(env);	// may not return
+		//env_destroy(env);	// may not return
 	}
 }
 // --------------------------------------------------------------
