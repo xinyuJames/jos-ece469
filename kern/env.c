@@ -115,22 +115,14 @@ void env_init(void)
 {
 	// Set up envs array
 	// LAB 3: Your code here.
-	// env_free_list = envs;
-	// for (uint32_t i = 0; i < NENV; i++)
-	// {
-	// 	envs[i].env_status = ENV_FREE;
-	// 	envs[i].env_id = 0;
-	// 	envs[i].env_link = &envs[i + 1];
-	// }
-	// envs[NENV - 1].env_link = NULL;
-
-	env_free_list = NULL;
-	for (int i = NENV - 1; i >= 0; i--) {
-		envs[i].env_id = 0;
+	env_free_list = envs;
+	for (uint32_t i = 0; i < NENV; i++)
+	{
 		envs[i].env_status = ENV_FREE;
-		envs[i].env_link = env_free_list;
-		env_free_list = &envs[i];
+		envs[i].env_id = 0;
+		envs[i].env_link = &envs[i + 1];
 	}
+	envs[NENV - 1].env_link = NULL;
 
 	// Per-CPU part of the initialization
 	env_init_percpu();
@@ -293,6 +285,7 @@ region_alloc(struct Env *e, void *va, size_t len)
 		if (page_insert(e->env_pgdir, temp_p, va, PTE_W | PTE_U) < 0) 
 			panic("page insert");
 	}
+	// pgdir_walk
 }
 
 //
@@ -505,8 +498,9 @@ void env_run(struct Env *e)
 	//	e->env_tf to sensible values.
 
 	// LAB 3: Your code here.
-	if (curenv != NULL && curenv->env_status == ENV_RUNNING) curenv->env_status = ENV_RUNNABLE;
-	
+	if (curenv != NULL && curenv->env_status == ENV_RUNNING) 
+		curenv->env_status = ENV_RUNNABLE;
+
 	curenv = e;
 	e->env_status = ENV_RUNNING;
 	e->env_runs++;
