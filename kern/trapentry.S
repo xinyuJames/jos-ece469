@@ -80,11 +80,8 @@ TRAPHANDLER_NOEC(t_simderr, T_SIMDERR);
  */
 
  _alltraps:
-
-	
-	pushl $0x0 // padding2
+ 
 	pushl %ds
-	pushl $0x0 // padding1
 	pushl %es
 	pushal // push struct PushRegs (8 32bit GP reg)
 
