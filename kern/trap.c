@@ -114,6 +114,8 @@ trap_init(void)
 	SETGATE(idt[T_FPERR], 0, GD_KT, t_fperr, 0);
 	SETGATE(idt[T_ALIGN], 0, GD_KT, t_align, 0);
 	SETGATE(idt[T_SIMDERR], 0, GD_KT, t_simderr, 0);
+	
+	SETGATE(idt[T_SYSCALL], 0, GD_KT, t_syscall, 3); // processor check incomming pl, compare with dpl here
 
 
 	// Per-CPU setup
@@ -194,17 +196,29 @@ trap_dispatch(struct Trapframe *tf)
 {
 	// Handle processor exceptions.
 	// LAB 3: Your code here.
-
 	// Unexpected trap: The user process or the kernel has a bug.
 	print_trapframe(tf);
 	if (tf->tf_cs == GD_KT)
 		panic("unhandled trap in kernel");
 	else {
-		if (tf->tf_trapno == T_PGFLT)
+
+		switch (tf->tf_trapno)
 		{
-			page_fault_handler(tf);
+			case T_PGFLT:
+				page_fault_handler(tf);
+				break;
+			case T_BRKPT:
+				monitor(NULL);
+				break;
+			case T_SYSCALL:
+				tf->tf_regs.reg_eax = (uint32_t) syscall(tf->tf_regs.reg_eax, tf->tf_regs.reg_edx,
+					tf->tf_regs.reg_ecx, tf->tf_regs.reg_ebx,
+					tf->tf_regs.reg_edi, tf->tf_regs.reg_esi);
+				break;
+			default: env_destroy(curenv);
 		}
-		env_destroy(curenv);
+
+		// env_destroy(curenv);
 		return;
 	}
 }
@@ -252,6 +266,8 @@ void
 page_fault_handler(struct Trapframe *tf)
 {
 	uint32_t fault_va;
+
+	if (!(tf->tf_cs & 3)) panic("Page Fault from Kernel");
 
 	// Read processor's CR2 register to find the faulting address
 	fault_va = rcr2();

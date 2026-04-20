@@ -6,6 +6,7 @@
 #include <inc/string.h>
 #include <inc/assert.h>
 #include <inc/env.h>
+#include <kern/env.h>
 
 #include <kern/pmap.h>
 #include <kern/kclock.h>
@@ -581,6 +582,41 @@ int
 user_mem_check(struct Env *env, const void *va, size_t len, int perm)
 {
 	// LAB 3: Your code here.
+	uint32_t va_start = ROUNDDOWN( (uint32_t) va, PGSIZE);
+	uint32_t va_end = ROUNDUP(va_start + (uint32_t) len, PGSIZE);
+
+	
+	// if perm & PTE_U && can write, check PTE_W + PTE_U
+	// if cannot write check PTE_U
+	uint32_t * pte = pgdir_walk(env->env_pgdir, (void *) va_start, 0);
+	if (!(*pte & PTE_P)) { user_mem_check_addr = (uintptr_t) va; return -E_FAULT; }
+
+	for (; va_start < va_end; va_start += PGSIZE)
+	{
+		uint32_t * pte = pgdir_walk(env->env_pgdir, (void *) va_start, 0);
+		if (!(*pte & PTE_P)) { user_mem_check_addr = (uintptr_t) va_start; return -E_FAULT; }
+		
+		if (perm & PTE_U && perm & PTE_W) // if user can read and write
+		{
+			if (*pte & PTE_U && *pte & PTE_W) continue;
+			else { user_mem_check_addr = va_start; return -E_FAULT; }
+		}
+
+		if (perm & PTE_U)
+		{
+			if (*pte & PTE_U) continue;
+			else { user_mem_check_addr = va_start; return -E_FAULT; }
+		}
+
+		if (perm & PTE_W)
+		{
+			if (*pte & PTE_W) continue;
+			else { user_mem_check_addr = va_start; return -E_FAULT; }
+		}
+	}
+
+	// check range
+	if (va_end > ULIM && (perm & PTE_U)) return -E_FAULT;
 
 	return 0;
 }
@@ -598,7 +634,7 @@ user_mem_assert(struct Env *env, const void *va, size_t len, int perm)
 	if (user_mem_check(env, va, len, perm | PTE_U) < 0) {
 		cprintf("[%08x] user_mem_check assertion failure for "
 			"va %08x\n", env->env_id, user_mem_check_addr);
-		//env_destroy(env);	// may not return
+		env_destroy(env);	// may not return
 	}
 }
 // --------------------------------------------------------------

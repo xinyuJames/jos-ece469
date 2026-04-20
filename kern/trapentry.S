@@ -72,6 +72,8 @@ TRAPHANDLER_NOEC(t_fperr, T_FPERR);
 TRAPHANDLER(t_align, T_ALIGN);
 TRAPHANDLER_NOEC(t_mchk, T_MCHK);
 TRAPHANDLER_NOEC(t_simderr, T_SIMDERR);
+
+TRAPHANDLER_NOEC(t_syscall, T_SYSCALL);
 // T_SYSCALL
 // T_DEFAULT
 
@@ -89,6 +91,7 @@ TRAPHANDLER_NOEC(t_simderr, T_SIMDERR);
 	movw %ax, %ds
 	movw %ax, %es
 
+	pushl %esp // argument of trap
 	call trap
 
 
