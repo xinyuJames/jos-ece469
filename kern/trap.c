@@ -14,7 +14,7 @@
 #include <kern/cpu.h>
 #include <kern/spinlock.h>
 
-static struct Taskstate ts;
+static struct Taskstate ts; // obsolete after MP
 
 /* For debugging, so print_trapframe can distinguish between printing
  * a saved trapframe and printing the current trapframe and print some
@@ -154,21 +154,40 @@ trap_init_percpu(void)
 	// user space on that CPU.
 	//
 	// LAB 4: Your code here:
+	thiscpu->cpu_ts.ts_esp0 = KSTACKTOP - (KSTKSIZE + KSTKGAP) * thiscpu->cpu_id;
+	thiscpu->cpu_ts.ts_ss0 = GD_KD;
+	thiscpu->cpu_ts.ts_iomb = sizeof(struct Taskstate);
+
+	gdt[(GD_TSS0 >> 3) + thiscpu->cpu_id] = SEG16(STS_T32A, (uint32_t) (&(thiscpu->cpu_ts)),
+					sizeof(struct Taskstate) - 1, 0);
+	gdt[(GD_TSS0 >> 3) + thiscpu->cpu_id].sd_s = 0;
+
+	// for (uint32_t i=0 ; i < NCPU; i++)
+	// {
+	// 	struct CpuInfo * cur = &cpus[i];
+	// 	cur->cpu_ts.ts_esp0 = KSTACKTOP - (KSTKSIZE + KSTKGAP) * cur->cpu_id;
+	// 	cur->cpu_ts.ts_ss0 = GD_KD;
+	// 	cur->cpu_ts.ts_iomb = sizeof(struct Taskstate);
+
+	// 	gdt[(GD_TSS0 >> 3) + cur->cpu_id] = SEG16(STS_T32A, (uint32_t) (&(cur->cpu_ts)),
+	// 					sizeof(struct Taskstate) - 1, 0);
+	// 	gdt[(GD_TSS0 >> 3) + cur->cpu_id].sd_s = 0;
+	// }
 
 	// Setup a TSS so that we get the right stack
 	// when we trap to the kernel.
-	ts.ts_esp0 = KSTACKTOP;
-	ts.ts_ss0 = GD_KD;
-	ts.ts_iomb = sizeof(struct Taskstate);
+	// ts.ts_esp0 = KSTACKTOP;
+	// ts.ts_ss0 = GD_KD;
+	// ts.ts_iomb = sizeof(struct Taskstate);
 
-	// Initialize the TSS slot of the gdt.
-	gdt[GD_TSS0 >> 3] = SEG16(STS_T32A, (uint32_t) (&ts),
-					sizeof(struct Taskstate) - 1, 0);
-	gdt[GD_TSS0 >> 3].sd_s = 0;
+	// // Initialize the TSS slot of the gdt.
+	// gdt[GD_TSS0 >> 3] = SEG16(STS_T32A, (uint32_t) (&ts),
+	// 				sizeof(struct Taskstate) - 1, 0);
+	// gdt[GD_TSS0 >> 3].sd_s = 0;
 
 	// Load the TSS selector (like other segment selectors, the
 	// bottom three bits are special; we leave them 0)
-	ltr(GD_TSS0);
+	ltr(GD_TSS0 + (thiscpu->cpu_id << 3));
 
 	// Load the IDT
 	lidt(&idt_pd);
@@ -225,25 +244,7 @@ trap_dispatch(struct Trapframe *tf)
 {
 	// Handle processor exceptions.
 	// LAB 3: Your code here.
-	if (tf->tf_trapno == T_PGFLT) {
-		page_fault_handler(tf);
-		return;
-	}
-	if (tf->tf_trapno == T_BRKPT || tf->tf_trapno == T_DEBUG) {
-		monitor(tf);
-		return;
-	}
-	if (tf->tf_trapno == T_SYSCALL) {
-		tf->tf_regs.reg_eax = syscall(
-			tf->tf_regs.reg_eax,  // syscall number
-			tf->tf_regs.reg_edx,  // a1
-			tf->tf_regs.reg_ecx,  // a2
-			tf->tf_regs.reg_ebx,  // a3
-			tf->tf_regs.reg_edi,  // a4
-			tf->tf_regs.reg_esi   // a5
-		);
-		return;
-	}
+	
 
 	// Handle spurious interrupts
 	// The hardware sometimes raises these because of noise on the
@@ -263,8 +264,24 @@ trap_dispatch(struct Trapframe *tf)
 	if (tf->tf_cs == GD_KT)
 		panic("unhandled trap in kernel");
 	else {
-		// cprintf("Hellllllllllllllllllllo\n");
-		env_destroy(curenv);
+
+		switch (tf->tf_trapno)
+		{
+			case T_PGFLT:
+				page_fault_handler(tf);
+				break;
+			case T_BRKPT:
+				monitor(NULL);
+				break;
+			case T_SYSCALL:
+				tf->tf_regs.reg_eax = (uint32_t) syscall(tf->tf_regs.reg_eax, tf->tf_regs.reg_edx,
+					tf->tf_regs.reg_ecx, tf->tf_regs.reg_ebx,
+					tf->tf_regs.reg_edi, tf->tf_regs.reg_esi);
+				break;
+			default: env_destroy(curenv);
+		}
+
+		// env_destroy(curenv);
 		return;
 	}
 }

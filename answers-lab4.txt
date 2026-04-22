@@ -1,0 +1,1 @@
+1. mpentry.S is copied by BSP to AP at MPENTRY_PADDR with virtual address. AP need to translate it to physical address, starting at MPENTRY_PADDR. so we have a virtual address reference of mpentry_start, all the address are translated to s-mpentry_start+MPENTRY_PADDR.

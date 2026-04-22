@@ -57,16 +57,12 @@ TRAPHANDLER_NOEC(t_oflow,   T_OFLOW)    // 4  overflow
 TRAPHANDLER_NOEC(t_bound,   T_BOUND)    // 5  bounds check
 TRAPHANDLER_NOEC(t_illop,   T_ILLOP)    // 6  illegal opcode
 TRAPHANDLER_NOEC(t_device,  T_DEVICE)   // 7  device not available
-
-// Error code pushed by CPU:
 TRAPHANDLER(t_dblflt,  T_DBLFLT)        // 8  double fault
 TRAPHANDLER(t_tss,     T_TSS)           // 10 invalid TSS
 TRAPHANDLER(t_segnp,   T_SEGNP)         // 11 segment not present
 TRAPHANDLER(t_stack,   T_STACK)         // 12 stack exception
 TRAPHANDLER(t_gpflt,   T_GPFLT)         // 13 general protection fault
 TRAPHANDLER(t_pgflt,   T_PGFLT)         // 14 page fault
-
-// No error code:
 TRAPHANDLER_NOEC(t_fperr,   T_FPERR)    // 16 floating point error
 TRAPHANDLER(t_align,   T_ALIGN)         // 17 alignment check (has error code)
 TRAPHANDLER_NOEC(t_mchk,    T_MCHK)     // 18 machine check

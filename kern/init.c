@@ -117,8 +117,11 @@ mp_main(void)
 	cprintf("SMP: CPU %d starting\n", cpunum());
 
 	lapic_init();
+	cprintf("Initializing Env\n");
 	env_init_percpu();
+	cprintf("Initializing Trap\n");
 	trap_init_percpu();
+	cprintf("Trap finish init\n");
 	xchg(&thiscpu->cpu_status, CPU_STARTED); // tell boot_aps() we're up
 
 	// Now that we have finished some basic setup, call sched_yield()
