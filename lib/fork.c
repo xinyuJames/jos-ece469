@@ -63,10 +63,14 @@ static int
 duppage(envid_t envid, unsigned pn)
 {
 	int r;
-
-	// LAB 4: Your code here.
 	void *addr = (void *)(pn * PGSIZE);
 	pte_t pte = uvpt[pn];
+
+	if (pte & PTE_SHARE) {
+		if ((r = sys_page_map(0, addr, envid, addr, pte & PTE_SYSCALL)) < 0)
+			panic("duppage: sys_page_map PTE_SHARE: %e", r);
+		return 0;
+	}
 
 	if ((pte & PTE_W) || (pte & PTE_COW)) {
 		// Map as COW in child
