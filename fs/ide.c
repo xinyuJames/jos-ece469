@@ -1,8 +1,7 @@
 /*
- * Interrupt-driven PIO IDE driver.
- * Reads block on sys_ide_intr_wait() per sector; writes poll for DRQ
- * then interrupt-wait for completion.  IRQ 14 must be unmasked in the
- * 8259A (done in kern/trap.c:trap_init).
+ * Minimal PIO-based (non-interrupt-driven) IDE driver code.
+ * For information about what all this IDE/ATA magic means,
+ * see the materials available on the class references page.
  */
 
 #include "fs.h"
@@ -12,10 +11,6 @@
 #define IDE_DRDY	0x40
 #define IDE_DF		0x20
 #define IDE_ERR		0x01
-
-/* ATA Device Control Register (write-only): nIEN bit disables interrupts */
-#define IDE_DCR		0x3F6
-#define IDE_DCR_NIEN	0x02	/* set = interrupts disabled */
 
 static int diskno = 1;
 
@@ -73,17 +68,14 @@ ide_read(uint32_t secno, void *dst, size_t nsecs)
 
 	ide_wait_ready(0);
 
-	outb(IDE_DCR, 0x00);		/* enable drive interrupts (nIEN=0) */
 	outb(0x1F2, nsecs);
 	outb(0x1F3, secno & 0xFF);
 	outb(0x1F4, (secno >> 8) & 0xFF);
 	outb(0x1F5, (secno >> 16) & 0xFF);
 	outb(0x1F6, 0xE0 | ((diskno&1)<<4) | ((secno>>24)&0x0F));
-	outb(0x1F7, 0x20);		/* CMD: read sectors */
+	outb(0x1F7, 0x20);	// CMD 0x20 means read sector
 
 	for (; nsecs > 0; nsecs--, dst += SECTSIZE) {
-		/* Block until the drive raises IRQ 14 (sector ready). */
-		sys_ide_intr_wait();
 		if ((r = ide_wait_ready(1)) < 0)
 			return r;
 		insl(0x1F0, dst, SECTSIZE/4);
@@ -101,24 +93,17 @@ ide_write(uint32_t secno, const void *src, size_t nsecs)
 
 	ide_wait_ready(0);
 
-	outb(IDE_DCR, 0x00);		/* enable drive interrupts (nIEN=0) */
 	outb(0x1F2, nsecs);
 	outb(0x1F3, secno & 0xFF);
 	outb(0x1F4, (secno >> 8) & 0xFF);
 	outb(0x1F5, (secno >> 16) & 0xFF);
 	outb(0x1F6, 0xE0 | ((diskno&1)<<4) | ((secno>>24)&0x0F));
-	outb(0x1F7, 0x30);		/* CMD: write sectors */
+	outb(0x1F7, 0x30);	// CMD 0x30 means write sector
 
 	for (; nsecs > 0; nsecs--, src += SECTSIZE) {
-		/*
-		 * For writes the drive sets DRQ without an interrupt on the
-		 * first sector (QEMU ATA behaviour); poll briefly for DRQ,
-		 * write the data, then block on the completion interrupt.
-		 */
 		if ((r = ide_wait_ready(1)) < 0)
 			return r;
 		outsl(0x1F0, src, SECTSIZE/4);
-		sys_ide_intr_wait();	/* wait for write-complete interrupt */
 	}
 
 	return 0;
