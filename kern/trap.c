@@ -144,6 +144,9 @@ trap_init(void)
 	SETGATE(idt[IRQ_OFFSET+14], 0, GD_KT, t_irq14, 0);
 	SETGATE(idt[IRQ_OFFSET+15], 0, GD_KT, t_irq15, 0);
 
+	// Unmask IDE IRQ 14 in the 8259A so disk interrupts are delivered.
+	irq_setmask_8259A(irq_mask_8259A & ~(1 << IRQ_IDE));
+
 	// Per-CPU setup
 	trap_init_percpu();
 }
@@ -287,6 +290,29 @@ trap_dispatch(struct Trapframe *tf)
 
 	// Handle keyboard and serial interrupts.
 	// LAB 5: Your code here.
+	if (tf->tf_trapno == IRQ_OFFSET + IRQ_KBD) {
+		kbd_intr();
+		return;
+	}
+	if (tf->tf_trapno == IRQ_OFFSET + IRQ_SERIAL) {
+		serial_intr();
+		return;
+	}
+
+	// Handle IDE disk interrupts.
+	if (tf->tf_trapno == IRQ_OFFSET + IRQ_IDE) {
+		// IRQ 14 is on the 8259A slave PIC; send EOI to slave then master.
+		outb(0xA0, 0x20);
+		outb(0x20, 0x20);
+		extern struct Env *ide_waiting_env;
+		if (ide_waiting_env &&
+		    ide_waiting_env->env_status == ENV_NOT_RUNNABLE) {
+			ide_waiting_env->env_status = ENV_RUNNABLE;
+			ide_waiting_env = NULL;
+		}
+		sched_yield();
+		return;
+	}
 
 	// Unexpected trap: The user process or the kernel has a bug.
 	print_trapframe(tf);

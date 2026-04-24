@@ -382,6 +382,21 @@ sys_ipc_recv(void *dstva)
 	return 0;
 }
 
+// The FS environment blocked waiting for an IDE interrupt; NULL when no waiter.
+struct Env *ide_waiting_env = NULL;
+
+// Block the calling environment until the next IDE interrupt.
+// Works like sys_ipc_recv: marks env NOT_RUNNABLE and yields;
+// the IDE IRQ handler sets it back to RUNNABLE.
+static int
+sys_ide_intr_wait(void)
+{
+	ide_waiting_env = curenv;
+	curenv->env_status = ENV_NOT_RUNNABLE;
+	sys_yield();
+	return 0;
+}
+
 // Dispatches to the correct kernel function, passing the arguments.
 int32_t
 syscall(uint32_t syscallno, uint32_t a1, uint32_t a2, uint32_t a3, uint32_t a4, uint32_t a5)
@@ -418,6 +433,8 @@ syscall(uint32_t syscallno, uint32_t a1, uint32_t a2, uint32_t a3, uint32_t a4, 
 		return sys_ipc_try_send((envid_t) a1, (uint32_t) a2, (void *) a3, (unsigned) a4);
 	case SYS_ipc_recv:
 		return sys_ipc_recv((void *) a1);
+	case SYS_ide_intr_wait:
+		return sys_ide_intr_wait();
 	default:
 		return -E_INVAL;
 	}
