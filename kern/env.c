@@ -90,6 +90,8 @@ envid2env(envid_t envid, struct Env **env_store, bool checkperm)
 	// that used the same slot in the envs[] array).
 	e = &envs[ENVX(envid)];
 	if (e->env_status == ENV_FREE || e->env_id != envid) {
+		if (e->env_status == ENV_FREE ) cprintf("envid2env: env_status is free\n");
+		else cprintf("envid2env: envid not match\n");
 		*env_store = 0;
 		return -E_BAD_ENV;
 	}
@@ -539,6 +541,7 @@ env_run(struct Env *e)
 	curenv = e;
 	curenv->env_status = ENV_RUNNING;
 	curenv->env_runs++;
+	unlock_kernel();
 	lcr3(PADDR(curenv->env_pgdir));
 
 	env_pop_tf(&curenv->env_tf);
