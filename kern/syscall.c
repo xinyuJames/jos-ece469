@@ -143,7 +143,20 @@ static int
 sys_env_set_pgfault_upcall(envid_t envid, void *func)
 {
 	// LAB 4: Your code here.
-	panic("sys_env_set_pgfault_upcall not implemented");
+	// panic("sys_env_set_pgfault_upcall not implemented");
+	int r;
+	struct Env * target_env;
+
+	r = envid2env(envid, &target_env, 1);
+	if (r < 0)
+	{
+		cprintf("sys_env_set_pgfault_upcall, %d\n", r);
+		return -E_BAD_ENV;
+	}
+
+	target_env->env_pgfault_upcall = func;
+
+	return 0;
 }
 
 // Allocate a page of memory and map it at 'va' with permission
@@ -162,7 +175,7 @@ sys_env_set_pgfault_upcall(envid_t envid, void *func)
 //	-E_INVAL if perm is inappropriate (see above).
 //	-E_NO_MEM if there's no memory to allocate the new page,
 //		or to allocate any necessary page tables.
-__attribute__((noinline))
+// __attribute__((noinline))
 static int
 sys_page_alloc(envid_t envid, void *va, int perm)
 {
@@ -176,14 +189,27 @@ sys_page_alloc(envid_t envid, void *va, int perm)
 	// LAB 4: Your code here.
 
 	// if va is not page alligned
-	if ((uint32_t) va % PGSIZE != 0 || (uint32_t) va >= UTOP) return -E_INVAL;
+	if ((uint32_t) va % PGSIZE != 0 || (uint32_t) va >= UTOP) 
+	{
+		cprintf("sys_page_alloc: va not allined or out of range\n");
+		return -E_INVAL;
+	}
+
 	// if perm not good
-	if (!(perm & (PTE_U | PTE_P))) return -E_INVAL;
+	if (!(perm & (PTE_U | PTE_P)))
+	{
+		cprintf("sys_page_alloc: permission error\n");
+		return -E_INVAL;
+	}
+
 	// if envid translation failed
 	struct Env * target_env;
 	int check_env = envid2env(envid, &target_env, 1);
-	if (check_env < 0) return check_env;
-
+	if (check_env < 0) 
+	{
+		cprintf("sys_page_alloc: envid2env error, %d\n", check_env);
+		return check_env;
+	}
 	// get a new page
 	struct PageInfo * new_page = page_alloc(1);
 	if (new_page == NULL) return E_NO_MEM;
@@ -262,7 +288,7 @@ sys_page_map(envid_t srcenvid, void *srcva,
 		cprintf("Dst physical page NULL\n");
 		return -E_INVAL;
 	}
-	// map srcva -> dst_pp
+	// map dstva -> src_pp
 	if (page_insert(dst_env->env_pgdir, src_pp, dstva, perm) < 0) return -E_NO_MEM;
 	return 0;
 	// panic("sys_page_map not implemented");
@@ -392,6 +418,8 @@ syscall(uint32_t syscallno, uint32_t a1, uint32_t a2, uint32_t a3, uint32_t a4, 
 		return (int32_t) sys_page_map((envid_t) a1, (void *) a2, (envid_t) a3, (void *) a4, (int) a5);
 	case SYS_page_unmap:
 		return (int32_t) sys_page_unmap((envid_t) a1, (void *) a2);
+	case SYS_env_set_pgfault_upcall:
+		return (int32_t) sys_env_set_pgfault_upcall((envid_t) a1, (void *) a2);
 	
 	default:
 		return -E_INVAL;
