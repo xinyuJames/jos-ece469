@@ -75,7 +75,12 @@ i386_init(void)
 	// ENV_CREATE(user_yield, ENV_TYPE_USER);
 	// ENV_CREATE(user_faultdie, ENV_TYPE_USER);
 	// ENV_CREATE(user_faultalloc, ENV_TYPE_USER);
-	ENV_CREATE(user_forktree, ENV_TYPE_USER);
+	// ENV_CREATE(user_forktree, ENV_TYPE_USER);
+	// ENV_CREATE(user_spin, ENV_TYPE_USER);
+	// ENV_CREATE(user_stresssched, ENV_TYPE_USER);
+	// ENV_CREATE(user_faultregs, ENV_TYPE_USER);
+	ENV_CREATE(user_sendpage, ENV_TYPE_USER);
+
 #endif // TEST*
 
 	// Schedule and run the first user environment!
@@ -139,7 +144,7 @@ mp_main(void)
 	sched_yield(); // run a user env
 
 	// Remove this after you finish Exercise 6
-	for (;;);
+	// for (;;);
 }
 
 /*

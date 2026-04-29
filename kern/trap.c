@@ -66,7 +66,7 @@ static const char *trapname(int trapno)
 }
 
 
-// Trap handler declarations (defined in trapentry.S)
+// exception handler declarations (defined in trapentry.S)
 void t_divide();
 void t_debug();
 void t_nmi();
@@ -87,6 +87,14 @@ void t_mchk();
 void t_simderr();
 void t_syscall();
 
+// interrupt hander
+void irq_timer();
+void irq_kbd();
+void irq_serial();
+void irq_spurious();
+void irq_ide();
+void irq_error();
+
 void
 trap_init(void)
 {
@@ -102,11 +110,12 @@ trap_init(void)
      *
      */
 	// LAB 3: Your code here.
+	// exception handler [SDM: 6.12.1.2]
 	SETGATE(idt[T_DIVIDE],  0, GD_KT, t_divide,  0);
-	SETGATE(idt[T_DEBUG],   0, GD_KT, t_debug,   0);
+	SETGATE(idt[T_DEBUG],   1, GD_KT, t_debug,   0);
 	SETGATE(idt[T_NMI],     0, GD_KT, t_nmi,     0);
-	SETGATE(idt[T_BRKPT],   0, GD_KT, t_brkpt,   3); // user can trigger int $3
-	SETGATE(idt[T_OFLOW],   0, GD_KT, t_oflow,   0);
+	SETGATE(idt[T_BRKPT],   1, GD_KT, t_brkpt,   3); // user can trigger int $3
+	SETGATE(idt[T_OFLOW],   1, GD_KT, t_oflow,   0);
 	SETGATE(idt[T_BOUND],   0, GD_KT, t_bound,   0);
 	SETGATE(idt[T_ILLOP],   0, GD_KT, t_illop,   0);
 	SETGATE(idt[T_DEVICE],  0, GD_KT, t_device,  0);
@@ -121,6 +130,14 @@ trap_init(void)
 	SETGATE(idt[T_MCHK],    0, GD_KT, t_mchk,    0);
 	SETGATE(idt[T_SIMDERR], 0, GD_KT, t_simderr, 0);
 	SETGATE(idt[T_SYSCALL], 0, GD_KT, t_syscall, 3); // user can trigger int $0x30
+
+	// interrupt handler
+	SETGATE(idt[IRQ_OFFSET + IRQ_TIMER], 0, GD_KT, irq_timer, 0);
+	SETGATE(idt[IRQ_OFFSET + IRQ_KBD], 0, GD_KT, irq_kbd, 0);
+	SETGATE(idt[IRQ_OFFSET + IRQ_SERIAL], 0, GD_KT, irq_serial, 0);
+	SETGATE(idt[IRQ_OFFSET + IRQ_SPURIOUS], 0, GD_KT, irq_spurious, 0);
+	SETGATE(idt[IRQ_OFFSET + IRQ_IDE], 0, GD_KT, irq_ide, 0);
+	SETGATE(idt[IRQ_OFFSET + IRQ_ERROR], 0, GD_KT, irq_error, 0);
 
 	// Per-CPU setup
 	trap_init_percpu();
@@ -228,6 +245,12 @@ trap_dispatch(struct Trapframe *tf)
 		print_trapframe(tf);
 		return;
 	}
+	if (tf->tf_trapno == IRQ_OFFSET + IRQ_TIMER)
+	{
+		lapic_eoi();
+		sched_yield();
+		return;
+	}
 
 	// Handle clock interrupts. Don't forget to acknowledge the
 	// interrupt using lapic_eoi() before calling the scheduler!
@@ -235,9 +258,9 @@ trap_dispatch(struct Trapframe *tf)
 
 	// Unexpected trap: The user process or the kernel has a bug.
 
+	//print_trapframe(tf); // print this before emptive masking takes too long
 
-	//print_trapframe(tf);
-
+	
 	
 	if (tf->tf_cs == GD_KT)
 		panic("unhandled trap in kernel");
@@ -275,6 +298,8 @@ trap(struct Trapframe *tf)
 	extern char *panicstr;
 	if (panicstr)
 		asm volatile("hlt");
+	
+//print_trapframe(tf);
 
 	// Re-acqurie the big kernel lock if we were halted in
 	// sched_yield()
@@ -286,7 +311,7 @@ trap(struct Trapframe *tf)
 	assert(!(read_eflags() & FL_IF));
 
 	//cprintf("Incoming TRAP frame at %p\n", tf);
-
+	
 	if ((tf->tf_cs & 3) == 3) {
 		// Trapped from user mode.
 		// Acquire the big kernel lock before doing any
@@ -331,7 +356,7 @@ void
 page_fault_handler(struct Trapframe *tf)
 {
 	uint32_t fault_va;
-
+	print_trapframe(tf);
 	// Read processor's CR2 register to find the faulting address
 	fault_va = rcr2();
 	// Handle kernel-mode page faults.
@@ -379,15 +404,11 @@ page_fault_handler(struct Trapframe *tf)
 	//print_trapframe(tf);
 	
 	// check pgfault handler
-	if (curenv->env_pgfault_upcall == NULL || (uint32_t) curenv->env_pgfault_upcall >= UTOP)
-	{
-		if (curenv->env_pgfault_upcall == NULL) { cprintf("env_pgfault_upcall is NULL\n"); env_destroy(curenv); } 
-		else { cprintf("env_pgfault_upcall above UTOP\n"); env_destroy(curenv); }
-	}
-		
+	if (curenv->env_pgfault_upcall == NULL) { cprintf("env_pgfault_upcall is NULL\n"); env_destroy(curenv); }
+	user_mem_assert(curenv, (void *) curenv->env_pgfault_upcall, PGSIZE, PTE_P|PTE_U);
 	
 	// check UXstack
-	user_mem_assert(curenv, (void *) (UXSTACKTOP - PGSIZE), PGSIZE, PTE_U | PTE_P);
+	// user_mem_assert(curenv, (void *) (UXSTACKTOP - PGSIZE), PGSIZE, PTE_U | PTE_P);
 
 	// calculate UXstack location
 	uintptr_t uxs_addr;
@@ -398,7 +419,8 @@ page_fault_handler(struct Trapframe *tf)
 	{
 		uxs_addr = UXSTACKTOP - sizeof(struct UTrapframe);
 	}
-
+	
+	user_mem_assert(curenv, (void *)uxs_addr, sizeof(struct UTrapframe), PTE_U | PTE_W | PTE_P);
 	// store current regs in UTF
 	struct UTrapframe * utf = (struct UTrapframe *) uxs_addr;
 	utf->utf_fault_va = fault_va;

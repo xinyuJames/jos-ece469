@@ -218,7 +218,13 @@ sys_page_alloc(envid_t envid, void *va, int perm)
 	if (page_insert(target_env->env_pgdir, new_page, va, perm) < 0)
 	{
 		page_free(new_page); // free pp when insert failed
+		cprintf("sys_page_alloc: page insert failed\n");
+		return -E_INVAL;
 	}
+
+	// check
+	
+
 	return 0;
 
 	// panic("sys_page_alloc not implemented");
@@ -267,8 +273,8 @@ sys_page_map(envid_t srcenvid, void *srcva,
 
 	// envid translation
 	struct Env * src_env, * dst_env;
-	if (envid2env(srcenvid, &src_env, 1) < 0) return -E_BAD_ENV;
-	if (envid2env(dstenvid, &dst_env, 1) < 0) return -E_BAD_ENV;
+	if (envid2env(srcenvid, &src_env, 0) < 0) return -E_BAD_ENV;
+	if (envid2env(dstenvid, &dst_env, 0) < 0) return -E_BAD_ENV;
 
 	// perm sanity check
 	if (!(perm & (PTE_P | PTE_U)))
@@ -363,7 +369,67 @@ static int
 sys_ipc_try_send(envid_t envid, uint32_t value, void *srcva, unsigned perm)
 {
 	// LAB 4: Your code here.
-	panic("sys_ipc_try_send not implemented");
+	// panic("sys_ipc_try_send not implemented");
+
+	int r;
+	// envid sanity check
+	struct Env * target_env;
+	r = envid2env(envid, &target_env,0);
+	if (r < 0) {cprintf("sys_pic_try_send: envid error, %d\n", r); return -E_BAD_ENV;}
+
+	// receiver sanity check
+	if (!target_env->env_ipc_recving)
+	{
+		// cprintf("sys_pic_try_send: target env not receiving\n");
+		return -E_IPC_NOT_RECV;
+	}
+
+	// srcva sanity check
+	if ((uint32_t) srcva < UTOP && (uint32_t) srcva % PGSIZE != 0)
+	{
+		cprintf("sys_ipc_try_send: srcva not alligned\n");
+		return -E_INVAL;
+	}
+	if ((uint32_t) srcva < UTOP && !(perm & (PTE_U|PTE_P)))
+	{
+		cprintf("sys_ipc_try_send: perm error\n");
+		return -E_INVAL;
+	}
+	pte_t * src_pte;
+	struct PageInfo * src_pp = page_lookup(curenv->env_pgdir, srcva, &src_pte);
+	if (src_pp == NULL)
+	{
+		cprintf("sys_ipc_try_send: srcva not mapped in caller\n");
+		return -E_INVAL;
+	}
+	if ((((uint32_t) perm & PTE_W)))
+	{
+		if (!((uint32_t) *src_pte & PTE_W))
+		{
+			cprintf("sys_ipc_try_send: perm PTE_W violate, [%d,%x]\n", ((uint32_t) perm & PTE_W), (uint32_t) *src_pte);
+			return -E_INVAL;
+		}
+	}
+
+
+	// default passing
+	target_env->env_ipc_perm = 0;
+	target_env->env_ipc_from = curenv->env_id;
+	target_env->env_ipc_value = value;
+	target_env->env_ipc_recving = false;
+	
+
+	// target asking for a page
+	if ((uint32_t) target_env->env_ipc_dstva < UTOP && (uint32_t) target_env->env_ipc_dstva % PGSIZE == 0)
+	{
+		r = sys_page_map(curenv->env_id, srcva, envid, target_env->env_ipc_dstva, perm);
+		if (r < 0) {cprintf("sys_ipc_try_send: sys_page_map failed, %d\n", r); return -E_NO_MEM;}
+		target_env->env_ipc_perm = perm;
+	
+	}
+	
+	target_env->env_status = ENV_RUNNABLE;
+	return 0;
 }
 
 // Block until a value is ready.  Record that you want to receive
@@ -381,9 +447,24 @@ static int
 sys_ipc_recv(void *dstva)
 {
 	// LAB 4: Your code here.
-	panic("sys_ipc_recv not implemented");
-	return 0;
+	// panic("sys_ipc_recv not implemented");
+	if ((uint32_t) dstva < UTOP && (uint32_t) dstva % PGSIZE != 0)
+	{
+		cprintf("sys_ipc_recv: invalid dstva\n");
+		return -E_INVAL;
+	}
+
+	curenv->env_ipc_recving = true;
+	curenv->env_ipc_dstva = dstva;
+	curenv->env_status = ENV_NOT_RUNNABLE;
+	
+	// set return value
+	curenv->env_tf.tf_regs.reg_eax = 0;
+
+	sched_yield();
+
 }
+
 
 // Dispatches to the correct kernel function, passing the arguments.
 int32_t
@@ -411,7 +492,6 @@ syscall(uint32_t syscallno, uint32_t a1, uint32_t a2, uint32_t a3, uint32_t a4, 
 	case SYS_env_set_status:
 		return (int32_t) sys_env_set_status((envid_t) a1, (int) a2);
 	case SYS_page_alloc:
-		
 		return (int32_t) sys_page_alloc((envid_t) a1, (void *) a2, (int) a3);
 	case SYS_page_map:
 		//cprintf("sys_page_map entered...\n");
@@ -420,7 +500,11 @@ syscall(uint32_t syscallno, uint32_t a1, uint32_t a2, uint32_t a3, uint32_t a4, 
 		return (int32_t) sys_page_unmap((envid_t) a1, (void *) a2);
 	case SYS_env_set_pgfault_upcall:
 		return (int32_t) sys_env_set_pgfault_upcall((envid_t) a1, (void *) a2);
-	
+	case SYS_ipc_recv:
+		return (int32_t) sys_ipc_recv((void *) a1);
+	case SYS_ipc_try_send:
+		return (int32_t) sys_ipc_try_send((envid_t) a1, a2, (void *) a3, (unsigned int) a4);
+
 	default:
 		return -E_INVAL;
 	}

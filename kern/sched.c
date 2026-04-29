@@ -39,7 +39,7 @@ sched_yield(void)
 	{
 		curidx = (uint32_t) ENVX(curenv->env_id) + 1;
 	}
-	init_idx = curidx ? curidx : NENV-2;
+	init_idx = curidx;
 	while (!wrap)
 	{
 		idle = &envs[curidx];
@@ -57,7 +57,7 @@ sched_yield(void)
 	
 	if (curenv != NULL && curenv->env_status == ENV_RUNNING && curenv->env_cpunum == thiscpu->cpu_id)
 	{
-		cprintf("sched_yield: no other env available, running curenv\n");
+		//cprintf("sched_yield: no other env available, running curenv\n");
 		curenv->env_cpunum = thiscpu->cpu_id;
 		env_run(curenv);
 		
@@ -110,7 +110,7 @@ sched_halt(void)
 		"pushl $0\n"
         // LAB 4:
 		// Uncomment the following line after completing exercise 13
-		//"sti\n"
+		"sti\n"
 		"1:\n"
 		"hlt\n"
 		"jmp 1b\n"
