@@ -1,0 +1,2 @@
+EX1:
+1. No. The I/O privilege bits are part of teh EFLAGs, which is saved in each environment's env_tf.tf_eflags on every trap and then restored through iret in env_pop. The correct privilege level is automatically saved across context switches.
