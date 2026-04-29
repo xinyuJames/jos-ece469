@@ -66,7 +66,7 @@ endif
 # try to generate a unique GDB port
 GDBPORT	:= $(shell expr `id -u` % 5000 + 25000)
 
-CC	:= $(GCCPREFIX)gcc -pipe
+CC	:= $(GCCPREFIX)gcc-11 -pipe
 GDB	:= $(GCCPREFIX)gdb
 AS	:= $(GCCPREFIX)as
 AR	:= $(GCCPREFIX)ar
@@ -122,6 +122,8 @@ all:
 	   $(OBJDIR)/lib/%.o $(OBJDIR)/fs/%.o $(OBJDIR)/net/%.o \
 	   $(OBJDIR)/user/%.o
 
+# KERN_CFLAGS := $(CFLAGS) -DJOS_KERNEL -gstabs -ggdb3
+# USER_CFLAGS := $(CFLAGS) -DJOS_USER -gstabs -ggdb3
 KERN_CFLAGS := $(CFLAGS) -DJOS_KERNEL -gstabs
 USER_CFLAGS := $(CFLAGS) -DJOS_USER -gstabs
 
@@ -145,8 +147,7 @@ include fs/Makefrag
 
 
 CPUS ?= 1
-
-QEMUOPTS = -drive file=$(OBJDIR)/kern/kernel.img,index=0,media=disk,format=raw -serial mon:stdio -gdb tcp::$(GDBPORT)
+QEMUOPTS = -machine pc-i440fx-2.3 -drive file=$(OBJDIR)/kern/kernel.img,index=0,media=disk,format=raw -serial mon:stdio -gdb tcp::$(GDBPORT)
 QEMUOPTS += $(shell if $(QEMU) -nographic -help | grep -q '^-D '; then echo '-D qemu.log'; fi)
 IMAGES = $(OBJDIR)/kern/kernel.img
 QEMUOPTS += -smp $(CPUS)
@@ -162,10 +163,10 @@ gdb:
 
 pre-qemu: .gdbinit
 
-qemu: $(IMAGES) pre-qemu
-	$(QEMU) -nographic $(QEMUOPTS)
+qemu: $(IMAGES) pre-qemu # changed to GUI display
+	$(QEMU) $(QEMUOPTS)
 
-qemu-nox: $(IMAGES) pre-qemu
+qemu-nox: $(IMAGES) pre-qemu # no display
 	@echo "***"
 	@echo "*** Use Ctrl-a x to exit qemu"
 	@echo "***"

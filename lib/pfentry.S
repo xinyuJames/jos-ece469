@@ -57,7 +57,7 @@ _pgfault_upcall:
 	//
 	//   In the case of a recursive fault on the exception stack,
 	//   note that the word we're pushing now will fit in the
-	//   blank word that the kernel reserved for us.
+	//   blank word that the kernel reserved for us. _nested call will push eip to that empty word_
 	//
 	// Throughout the remaining code, think carefully about what
 	// registers are available for intermediate calculations.  You
@@ -66,17 +66,36 @@ _pgfault_upcall:
 	//
 	// LAB 4: Your code here.
 
+	addl $8, %esp // skip fault_va and err
+
 	// Restore the trap-time registers.  After you do this, you
 	// can no longer modify any general-purpose registers.
 	// LAB 4: Your code here.
+	
+	// push eip into trap-time esp and increment esp; use GP regs to calculate
+	movl 40(%esp), %eax // trap-time esp
+	movl 32(%esp), %ebx	// trap-time eip
+	subl $4, %eax		// make space for eip
+	movl %ebx, (%eax)	// push eip onto trap-time esp
+	movl %eax, 40(%esp)	// overwrite trap-time esp with stored eip
 
+	popal				// pop GP regs
+	
 	// Restore eflags from the stack.  After you do this, you can
 	// no longer use arithmetic operations or anything else that
 	// modifies eflags.
 	// LAB 4: Your code here.
 
+	addl $4, %esp		// skip eip
+	popfl				// pop eflags
+	
 	// Switch back to the adjusted trap-time stack.
 	// LAB 4: Your code here.
+	pop %esp			// pop esp
 
 	// Return to re-execute the instruction that faulted.
 	// LAB 4: Your code here.
+
+	ret
+
+

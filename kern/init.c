@@ -3,6 +3,7 @@
 #include <inc/stdio.h>
 #include <inc/string.h>
 #include <inc/assert.h>
+#include <inc/x86.h>
 
 #include <kern/monitor.h>
 #include <kern/console.h>
@@ -25,7 +26,13 @@ i386_init(void)
 	// Can't call cprintf until after we do this!
 	cons_init();
 
-	cprintf("444544 decimal is %o octal!\n", 444544);
+	// (gdb) x/12x ap
+	// 0xf010ffd4:     0x01    0x00    0x00    0x00    0x03    0x00    0x00    0x00
+	// 0xf010ffdc:     0x04    0x00    0x00    0x00
+	// (gdb) x/s fmt
+	// 0xf0101ab7:     "x %d, y %x, z %d\n"
+	// int x = 1, y = 3, z = 4;
+	// cprintf("x %d, y %x, z %d\n", x, y, z);
 
 	// Lab 2 memory management initialization functions
 	mem_init();
@@ -33,6 +40,16 @@ i386_init(void)
 	// Lab 3 user environment initialization functions
 	env_init();
 	trap_init();
+
+	// Challenge 2: set up sysenter/sysexit MSRs for fast system calls.
+	// IA32_SYSENTER_CS (0x174): kernel code segment selector.
+	//   sysexit uses CS+16 (GD_UT) and CS+24 (GD_UD) for user CS/SS.
+	// IA32_SYSENTER_ESP (0x175): kernel stack top.
+	// IA32_SYSENTER_EIP (0x176): address of sysenter_handler.
+	extern void sysenter_handler(void);
+	wrmsr(0x174, GD_KT);
+	wrmsr(0x175, KSTACKTOP);
+	wrmsr(0x176, (uint32_t) sysenter_handler);
 
 	// Lab 4 multiprocessor initialization functions
 	mp_init();
@@ -43,6 +60,7 @@ i386_init(void)
 
 	// Acquire the big kernel lock before waking up APs
 	// Your code here:
+	lock_kernel();
 
 	// Starting non-boot CPUs
 	boot_aps();
@@ -55,7 +73,17 @@ i386_init(void)
 	ENV_CREATE(TEST, ENV_TYPE_USER);
 #else
 	// Touch all you want.
-	ENV_CREATE(user_icode, ENV_TYPE_USER);
+	// ENV_CREATE(user_yield, ENV_TYPE_USER);
+	// ENV_CREATE(user_yield, ENV_TYPE_USER);
+	// ENV_CREATE(user_yield, ENV_TYPE_USER);
+	// ENV_CREATE(user_faultdie, ENV_TYPE_USER);
+	// ENV_CREATE(user_faultalloc, ENV_TYPE_USER);
+	// ENV_CREATE(user_forktree, ENV_TYPE_USER);
+	// ENV_CREATE(user_spin, ENV_TYPE_USER);
+	// ENV_CREATE(user_stresssched, ENV_TYPE_USER);
+	// ENV_CREATE(user_faultregs, ENV_TYPE_USER);
+	ENV_CREATE(user_sendpage, ENV_TYPE_USER);
+
 #endif // TEST*
 
 	// Should not be necessary - drains keyboard because interrupt has given up.
@@ -106,8 +134,11 @@ mp_main(void)
 	cprintf("SMP: CPU %d starting\n", cpunum());
 
 	lapic_init();
+	//cprintf("Initializing Env\n");
 	env_init_percpu();
+	//cprintf("Initializing Trap\n");
 	trap_init_percpu();
+	//cprintf("Trap finish init\n");
 	xchg(&thiscpu->cpu_status, CPU_STARTED); // tell boot_aps() we're up
 
 	// Now that we have finished some basic setup, call sched_yield()
@@ -115,9 +146,11 @@ mp_main(void)
 	// only one CPU can enter the scheduler at a time!
 	//
 	// Your code here:
+	lock_kernel();
+	sched_yield(); // run a user env
 
 	// Remove this after you finish Exercise 6
-	for (;;);
+	// for (;;);
 }
 
 /*

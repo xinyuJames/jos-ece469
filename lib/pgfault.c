@@ -25,13 +25,32 @@ void
 set_pgfault_handler(void (*handler)(struct UTrapframe *utf))
 {
 	int r;
+	envid_t curenv_id = sys_getenvid();
 
 	if (_pgfault_handler == 0) {
 		// First time through!
 		// LAB 4: Your code here.
-		panic("set_pgfault_handler not implemented");
+		// panic("set_pgfault_handler not implemented");
+
+		// allocate a page to UXstack
+		r = sys_page_alloc(curenv_id, (void *) (UXSTACKTOP - PGSIZE), PTE_P|PTE_U|PTE_W);
+		if (r < 0)
+		{
+			panic("set_pgfault_handler: sys_page_alloc error, %d\n", r);
+			return;
+		}
+	}
+
+	// set upcall entry point to be _pgfault_upcall
+	r = sys_env_set_pgfault_upcall(curenv_id, _pgfault_upcall);
+	if (r < 0)
+	{
+		panic("set_pgfault_handler: sys_env_set_pgfault_upcall error, %d\n", r);
+		return;
 	}
 
 	// Save handler pointer for assembly to call.
 	_pgfault_handler = handler;
+	
 }
+ 

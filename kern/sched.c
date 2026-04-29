@@ -30,6 +30,40 @@ sched_yield(void)
 	// below to halt the cpu.
 
 	// LAB 4: Your code here.
+	int wrap = 0;
+	uint32_t curidx;
+	uint32_t init_idx;
+	if (curenv == NULL)
+	{
+		curidx = 0;	
+	} else
+	{
+		curidx = (uint32_t) ENVX(curenv->env_id) + 1;
+	}
+	init_idx = curidx;
+	while (!wrap)
+	{
+		idle = &envs[curidx];
+		if (idle->env_status == ENV_RUNNABLE)
+		{
+			idle->env_cpunum = thiscpu->cpu_id;
+			env_run(idle);
+			
+			return;
+		}
+		curidx = (curidx == NENV-1) ? 0 : curidx + 1;
+		wrap = curidx == init_idx;
+	}
+	//cprintf("sched_yield: no other env available, running curenv, %d, %d\n", envs[init_idx].env_status, init_idx);
+	
+	if (curenv != NULL && curenv->env_status == ENV_RUNNING && curenv->env_cpunum == thiscpu->cpu_id)
+	{
+		//cprintf("sched_yield: no other env available, running curenv\n");
+		curenv->env_cpunum = thiscpu->cpu_id;
+		env_run(curenv);
+		
+		return;
+	}
 
 	// sched_halt never returns
 	sched_halt();
@@ -77,7 +111,7 @@ sched_halt(void)
 		"pushl $0\n"
         // LAB 4:
 		// Uncomment the following line after completing exercise 13
-		//"sti\n"
+		"sti\n"
 		"1:\n"
 		"hlt\n"
 		"jmp 1b\n"

@@ -18,6 +18,7 @@ __pycache__/
 /sol?/
 /myapi.key
 /.suf
+/.claude
 
 # nfs
 .nfs*
@@ -92,3 +93,5 @@ cscope.files
 cscope.out
 cscope.in.out
 cscope.po.out
+
+compile_commands.json
