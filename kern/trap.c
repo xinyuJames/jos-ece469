@@ -252,6 +252,30 @@ trap_dispatch(struct Trapframe *tf)
 		return;
 	}
 
+	switch (tf->tf_trapno)
+	{
+		case IRQ_OFFSET + IRQ_SPURIOUS:
+			cprintf("Spurious interrupt on irq 7\n");
+			print_trapframe(tf);
+			return;
+
+		case IRQ_OFFSET + IRQ_TIMER:
+			lapic_eoi();
+			sched_yield();
+			return;
+
+		case IRQ_OFFSET + IRQ_KBD:
+			kbd_intr();
+			return;
+		
+		case IRQ_OFFSET + IRQ_SERIAL:
+			serial_intr();
+			return;
+
+		default:
+			break;
+	}
+
 	// Handle clock interrupts. Don't forget to acknowledge the
 	// interrupt using lapic_eoi() before calling the scheduler!
 	// LAB 4: Your code here.
@@ -359,7 +383,7 @@ void
 page_fault_handler(struct Trapframe *tf)
 {
 	uint32_t fault_va;
-	print_trapframe(tf);
+	// print_trapframe(tf);
 	// Read processor's CR2 register to find the faulting address
 	fault_va = rcr2();
 	// Handle kernel-mode page faults.
@@ -404,7 +428,7 @@ page_fault_handler(struct Trapframe *tf)
 	// LAB 4: Your code here.
 
 	cprintf("[%08x] user fault va %08x ip %08x\n", curenv->env_id, fault_va, tf->tf_eip);
-	//print_trapframe(tf);
+	print_trapframe(tf);
 	
 	// check pgfault handler
 	if (curenv->env_pgfault_upcall == NULL) { cprintf("env_pgfault_upcall is NULL\n"); env_destroy(curenv); }
@@ -432,7 +456,6 @@ page_fault_handler(struct Trapframe *tf)
 	utf->utf_eip = tf->tf_eip;
 	utf->utf_eflags = tf->tf_eflags;
 	utf->utf_esp = tf->tf_esp;
-	
 	// adjust esp
 	curenv->env_tf.tf_esp = uxs_addr;
 

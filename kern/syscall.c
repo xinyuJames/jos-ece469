@@ -140,7 +140,19 @@ sys_env_set_trapframe(envid_t envid, struct Trapframe *tf)
 	// LAB 5: Your code here.
 	// Remember to check whether the user has supplied us with a good
 	// address!
-	panic("sys_env_set_trapframe not implemented");
+	int r;
+	struct Env * child_env;
+	
+	if ((r = envid2env(envid, &child_env, 1)) < 0)
+	{
+		cprintf("sys_env_set_trapframe:user_envid2env: error, %d\n", r);
+		return -E_BAD_ENV;
+	}
+	user_mem_assert(child_env, (void *) tf, sizeof(struct Trapframe), PTE_U|PTE_P);
+
+	child_env->env_tf = *tf;
+
+	return 0;
 }
 
 // Set the page fault upcall for 'envid' by modifying the corresponding struct
@@ -234,9 +246,6 @@ sys_page_alloc(envid_t envid, void *va, int perm)
 		return -E_INVAL;
 	}
 
-	// check
-	
-
 	return 0;
 
 	// panic("sys_page_alloc not implemented");
@@ -274,7 +283,7 @@ sys_page_map(envid_t srcenvid, void *srcva,
 	// va sanity check
 	if ((uint32_t) srcva >= UTOP || (uint32_t) srcva % PGSIZE != 0)
 	{
-		cprintf("Src VA invalid\n");
+		cprintf("sys_page_map:Src VA invalid, %d, %d\n", (uint32_t) srcva >= UTOP ? 0 : 1, (uint32_t) srcva);
 		return -E_INVAL;
 	} 
 	if ((uint32_t) dstva >= UTOP || (uint32_t) dstva % PGSIZE != 0)
@@ -432,7 +441,7 @@ sys_ipc_try_send(envid_t envid, uint32_t value, void *srcva, unsigned perm)
 	
 
 	// target asking for a page
-	if ((uint32_t) target_env->env_ipc_dstva < UTOP && (uint32_t) target_env->env_ipc_dstva % PGSIZE == 0)
+	if ((uint32_t) srcva < UTOP && (uint32_t) srcva % PGSIZE == 0 && (uint32_t) target_env->env_ipc_dstva < UTOP && (uint32_t) target_env->env_ipc_dstva % PGSIZE == 0)
 	{
 		r = sys_page_map(curenv->env_id, srcva, envid, target_env->env_ipc_dstva, perm);
 		if (r < 0) {cprintf("sys_ipc_try_send: sys_page_map failed, %d\n", r); return -E_NO_MEM;}
@@ -496,7 +505,7 @@ syscall(uint32_t syscallno, uint32_t a1, uint32_t a2, uint32_t a3, uint32_t a4, 
 	case SYS_env_destroy:
 		return sys_env_destroy((envid_t) a1);
 	case SYS_yield:
-	cprintf("curenv: %d, %d\n", curenv->env_status, ENVX(curenv->env_id));
+	// cprintf("curenv: %d, %d\n", curenv->env_status, ENVX(curenv->env_id));
 		sys_yield();
 		return 0;
 	case SYS_exofork:
@@ -516,6 +525,8 @@ syscall(uint32_t syscallno, uint32_t a1, uint32_t a2, uint32_t a3, uint32_t a4, 
 		return (int32_t) sys_ipc_recv((void *) a1);
 	case SYS_ipc_try_send:
 		return (int32_t) sys_ipc_try_send((envid_t) a1, a2, (void *) a3, (unsigned int) a4);
+	case SYS_env_set_trapframe:
+		return (int32_t) sys_env_set_trapframe((envid_t) a1, (struct Trapframe *) a2);
 
 	default:
 		return -E_INVAL;

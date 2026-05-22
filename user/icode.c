@@ -18,7 +18,7 @@ umain(int argc, char **argv)
 	while ((n = read(fd, buf, sizeof buf-1)) > 0)
 		sys_cputs(buf, n);
 
-	cprintf("icode: close /motd\n");
+cprintf("icode: close /motd\n");
 	close(fd);
 
 	cprintf("icode: spawn /init\n");

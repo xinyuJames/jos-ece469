@@ -26,8 +26,8 @@ pgfault(struct UTrapframe *utf) // allocate a new page for current fault addr
 	//   (see <inc/memlayout.h>).
 
 	// LAB 4: Your code here.
-	if (!(err & FEC_WR)) panic("fork:pgfault: access not write\n");
-	if (!((uint32_t) uvpt[PGNUM(addr)] & PTE_COW)) panic("fork:pgfault: access not on COW page\n");
+	if (!(err & FEC_WR)) panic("pgfault: access not write\n");
+	if (!((uint32_t) uvpt[PGNUM(addr)] & PTE_COW)) panic("pgfault: access not on COW page\n");
  
  	// Allocate a new page, map it at a temporary location (PFTEMP),
 	// copy the data from the old page to the new page, then move the new
@@ -45,9 +45,9 @@ pgfault(struct UTrapframe *utf) // allocate a new page for current fault addr
 
 	// change mapping old -> new
 	r = sys_page_map(curenv_id, PFTEMP, curenv_id, addr_alligned, PTE_P|PTE_W|PTE_U|PTE_COW);
-	if (r < 0) panic("fork:sys_page_map error, %d\n", r);
+	if (r < 0) panic("sys_page_map error, %d\n", r);
 
-	if (sys_page_unmap(curenv_id, UTEMP) < 0) panic("fork:pgfault:sys_page_umap error\n");
+	if (sys_page_unmap(curenv_id, UTEMP) < 0) panic("pgfault:sys_page_umap error\n");
 
 	// panic("pgfault not implemented");
 }
@@ -78,17 +78,20 @@ duppage(envid_t envid, unsigned pn) // map curenv addr to target_env addr's pp
 	// if current page not exist in src
 	// if ((pte & PTE_P) == 0) return 0;
 
-	envid_t curenv_id = sys_getenvid();
 
-	if (pte & PTE_W || pte & PTE_COW)
+	if (pte & PTE_SHARE) // lab 5
 	{
-		r = sys_page_map(curenv_id, (void *) addr, envid, (void *) addr, PTE_U|PTE_P|PTE_COW);
+		r = sys_page_map(0, (void *) addr, envid, (void *) addr, PTE_SYSCALL & (pte & 0xfff));
+	}
+	else if (pte & PTE_W || pte & PTE_COW)
+	{
+		r = sys_page_map(0, (void *) addr, envid, (void *) addr, PTE_U|PTE_P|PTE_COW);
 		if (r < 0) panic("fork:duppage COW first sys_page_map error, %d\n", r);
-		r = sys_page_map(curenv_id, (void *) addr, curenv_id, (void *) addr, PTE_U|PTE_P|PTE_COW);
+		r = sys_page_map(0, (void *) addr, 0, (void *) addr, PTE_U|PTE_P|PTE_COW);
 		if (r < 0) panic("fork:duppage COW second sys_page_map error, %d\n", r);
 	} else
 	{
-		r = sys_page_map(curenv_id, (void *) addr, envid, (void *) addr, PTE_U|PTE_P);
+		r = sys_page_map(0, (void *) addr, envid, (void *) addr, PTE_U|PTE_P);
 		if (r < 0) panic("fork:duppage no COW sys_page_map error, %d\n", r);
 	}
 

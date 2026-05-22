@@ -78,13 +78,16 @@ i386_init(void)
 	// ENV_CREATE(user_yield, ENV_TYPE_USER);
 	// ENV_CREATE(user_faultdie, ENV_TYPE_USER);
 	// ENV_CREATE(user_faultalloc, ENV_TYPE_USER);
-	ENV_CREATE(user_forktree, ENV_TYPE_USER);
+	// ENV_CREATE(user_forktree, ENV_TYPE_USER);
 	// ENV_CREATE(user_spin, ENV_TYPE_USER);
 	// ENV_CREATE(user_stresssched, ENV_TYPE_USER);
 	// ENV_CREATE(user_faultregs, ENV_TYPE_USER);
 	// ENV_CREATE(user_sendpage, ENV_TYPE_USER);
 	// ENV_CREATE(user_primes, ENV_TYPE_USER);
 	// ENV_CREATE(user_pingpong, ENV_TYPE_USER);
+	// ENV_CREATE(user_testfile, ENV_TYPE_USER);
+	// ENV_CREATE(user_spawnhello, ENV_TYPE_USER);
+	ENV_CREATE(user_testpteshare, ENV_TYPE_USER);
 
 #endif // TEST*
 

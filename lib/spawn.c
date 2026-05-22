@@ -302,6 +302,26 @@ static int
 copy_shared_pages(envid_t child)
 {
 	// LAB 5: Your code here.
+
+	int r;
+	// iterate through all user pte
+	for (uint32_t i = 0; i < UTOP; i += PGSIZE)
+	{
+		if (i == UXSTACKTOP - PGSIZE) continue;
+		// map directly
+		if ((uvpd[PDX(i)] & PTE_P) && (uvpt[PGNUM(i)] & (PTE_P)))
+		{
+			if (!(uvpt[PGNUM(i)] & (PTE_SHARE))) continue;
+			
+			r = sys_page_map(0, (void *) i, child, (void *) i, PTE_SYSCALL & (uvpt[PGNUM(i)] & 0xfff));
+			if (r < 0)
+			{
+				cprintf("copy_shared_pages:sys_page_map: error, %d\n", r);
+				return r;
+			}
+		}
+	}
+
 	return 0;
 }
 

@@ -22,7 +22,7 @@
 // Number of block pointers in a File descriptor
 #define NDIRECT		10
 // Number of direct block pointers in an indirect block
-#define NINDIRECT	(BLKSIZE / 4)
+#define NINDIRECT	(BLKSIZE / 4) // 1024 indirect blocks
 
 #define MAXFILESIZE	((NDIRECT + NINDIRECT) * BLKSIZE)
 
@@ -34,7 +34,7 @@ struct File {
 	// Block pointers.
 	// A block is allocated iff its value is != 0.
 	uint32_t f_direct[NDIRECT];	// direct blocks; Dir -> array of struct File; File -> array of direct blocks
-	uint32_t f_indirect;		// indirect block
+	uint32_t f_indirect;		// indirect block // a block number for block containing block numbers
 
 	// Pad out to 256 bytes; must do arithmetic in case we're compiling
 	// fsformat on a 64-bit machine.
